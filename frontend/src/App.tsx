@@ -28,7 +28,7 @@ const pageVariants = {
 };
 
 function App() {
-  const { currentPage, isAuthenticated, setCurrentPage, user } = useAppStore();
+  const { currentPage, isAuthenticated, setCurrentPage } = useAppStore();
   const [showCelebration, setShowCelebration] = useState(false);
 
   // Show auth screen if not authenticated
