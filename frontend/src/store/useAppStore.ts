@@ -37,7 +37,7 @@ interface AppState {
   completeChallenge: (challengeId: string) => void;
   addPost: (post: UserPost) => void;
   likePost: (postId: string) => void;
-  openCase: () => Collectible;
+  openCase: (casePrice: number) => Collectible | null;
   setCaseOpening: (opening: boolean) => void;
   setLastOpenResult: (result: Collectible | null) => void;
   addCollectible: (collectible: Collectible) => void;
@@ -146,7 +146,16 @@ export const useAppStore = create<AppState>((set, get) => ({
     ),
   })),
   
-  openCase: () => {
+  openCase: (casePrice) => {
+    const currentCoins = get().user.coins;
+    if (currentCoins < casePrice) {
+      return null;
+    }
+
+    set((state) => ({
+      user: { ...state.user, coins: state.user.coins - casePrice },
+    }));
+
     const random = Math.random();
     let rarity: Rarity;
     

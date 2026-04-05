@@ -11,7 +11,7 @@ import Challenges from './pages/Challenges';
 import Groups from './pages/Groups';
 
 // Icons
-import { Home, Compass, Box, User, List, Users } from 'lucide-react';
+import { Home, Box, User, List, Users } from 'lucide-react';
 
 const navItems = [
   { id: 'feed', icon: Home, label: 'Home' },
@@ -43,7 +43,7 @@ function App() {
       case 'challenges':
         return <Challenges />;
       case 'cases':
-        return <Cases onShowCelebration={() => setShowCelebration(true)} />;
+        return <Cases onShowReward={() => setShowCelebration(true)} />;
       case 'groups':
         return <Groups />;
       case 'profile':
