@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
-import { Heart, MessageCircle, Send, Bookmark, MoreHorizontal, Award, Plus, ChevronRight } from 'lucide-react';
+import { Heart, MessageCircle, Send, Bookmark, MoreHorizontal, Award, Plus } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function Feed() {
-  const { posts, stories, user, likePost, markStoryViewed, setCurrentPage } = useAppStore();
+  const { posts, stories, likePost, markStoryViewed, setCurrentPage } = useAppStore();
   const [savedPosts, setSavedPosts] = useState<string[]>([]);
 
   const formatTime = (date: Date) => {
