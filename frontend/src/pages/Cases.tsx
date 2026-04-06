@@ -38,13 +38,15 @@ export default function Cases({ onShowReward }: CasesProps) {
 
     // Simulate case opening animation
     setTimeout(() => {
-      const result = openCase(caseType.price);
-      if (!result) {
-        setIsOpening(false);
-        setCaseOpening(false);
-        return;
-      }
-      setLastOpenResult(result);
+    const result = openCase(caseType.price);
+    if (!result) {
+      setIsOpening(false);
+      setCaseOpening(false);
+      return;
+ }
+
+addCollectible(result);
+setLastOpenResult(result);
       setIsOpening(false);
       setCaseOpening(false);
       setShowResult(true);
