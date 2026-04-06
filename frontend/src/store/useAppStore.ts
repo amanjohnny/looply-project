@@ -110,7 +110,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   completedChallenges: [],
   posts: mockPosts,
   stories: mockStories,
-  collectibles: mockCollectibles,
+  collectibles: [],
   caseOpening: false,
   lastOpenResult: null,
   groups: mockGroups,
@@ -164,10 +164,14 @@ export const useAppStore = create<AppState>((set, get) => ({
     else if (random < 0.9) rarity = 'epic';
     else rarity = 'legendary';
     
-    const availableCollectibles = get().collectibles.filter(c => c.rarity === rarity);
+    const availableCollectibles = mockCollectibles.filter(c => c.rarity === rarity);
     const result = availableCollectibles[Math.floor(Math.random() * availableCollectibles.length)] || availableCollectibles[0];
     
-    return { ...result, obtainedAt: new Date() };
+    return {
+      ...result,
+      id: `${result.id}-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      obtainedAt: new Date(),
+    };
   },
   
   setCaseOpening: (opening) => set({ caseOpening: opening }),

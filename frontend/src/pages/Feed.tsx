@@ -35,7 +35,7 @@ export default function Feed() {
             <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-pink-500 rounded-xl flex items-center justify-center shadow-glow-pink">
               <span className="text-white text-lg">✨</span>
             </div>
-            <span className="text-xl font-bold gradient-text">QuestUp</span>
+            <span className="text-xl font-bold gradient-text">Looply</span>
           </div>
           <div className="flex items-center gap-3">
             <button onClick={() => setCurrentPage('cases')} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
