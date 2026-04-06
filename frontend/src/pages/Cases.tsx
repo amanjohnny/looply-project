@@ -4,10 +4,6 @@ import type { Rarity, CaseType, CaseReward } from '../types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Box, RefreshCw, Sparkles, Coins, Zap } from 'lucide-react';
 
-interface CasesProps {
-  onShowReward: () => void;
-}
-
 const caseTypes = [
   { id: 'basic', name: 'Basic Case', price: 100, color: 'from-gray-400 to-gray-500', icon: '📦', rewardText: '1 reward' },
   { id: 'premium', name: 'Premium Case', price: 250, color: 'from-primary-400 to-pink-500', icon: '✨', rewardText: '1-3 rewards' },
@@ -28,7 +24,7 @@ const rarityCardClass: Record<Rarity, string> = {
   legendary: 'border-yellow-300 bg-yellow-50/90 shadow-[0_0_32px_rgba(251,191,36,0.28)]',
 };
 
-export default function Cases({ onShowReward }: CasesProps) {
+export default function Cases() {
   const { user, collectibles, openCase, setCaseOpening, setLastOpenRewards, lastOpenRewards } = useAppStore();
   const [selectedCase, setSelectedCase] = useState<string | null>(null);
   const [isOpening, setIsOpening] = useState(false);
@@ -56,7 +52,6 @@ export default function Cases({ onShowReward }: CasesProps) {
       setCaseOpening(false);
       setShowResult(true);
       setOpenCount(prev => prev + 1);
-      onShowReward();
     }, 2000);
   };
 

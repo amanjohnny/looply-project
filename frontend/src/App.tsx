@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { useAppStore } from './store/useAppStore';
 import { AnimatePresence, motion } from 'framer-motion';
 
@@ -29,7 +28,6 @@ const pageVariants = {
 
 function App() {
   const { currentPage, isAuthenticated, setCurrentPage } = useAppStore();
- 
 
   // Show auth screen if not authenticated
   if (!isAuthenticated) {
@@ -43,7 +41,7 @@ function App() {
       case 'challenges':
         return <Challenges />;
       case 'cases':
-        return <Cases onShowReward={() => setShowCelebration(true)} />;
+        return <Cases />;
       case 'groups':
         return <Groups />;
       case 'profile':
@@ -105,8 +103,6 @@ function App() {
           })}
         </div>
       </nav>
-
-      
     </div>
   );
 }
