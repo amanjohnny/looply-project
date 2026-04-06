@@ -21,6 +21,13 @@ const rarityConfig: Record<Rarity, { color: string; bg: string; icon: string; ch
   legendary: { color: 'text-yellow-600', bg: 'bg-yellow-50 border-yellow-300', icon: '👑', chance: '10%', glow: 'shadow-yellow-400/50 animate-pulse' },
 };
 
+const rarityCardClass: Record<Rarity, string> = {
+  common: 'border-gray-200 bg-white',
+  rare: 'border-blue-200 bg-blue-50/80 shadow-[0_0_24px_rgba(96,165,250,0.18)]',
+  epic: 'border-purple-200 bg-purple-50/80 shadow-[0_0_28px_rgba(168,85,247,0.22)]',
+  legendary: 'border-yellow-300 bg-yellow-50/90 shadow-[0_0_32px_rgba(251,191,36,0.28)]',
+};
+
 export default function Cases({ onShowReward }: CasesProps) {
   const { user, collectibles, openCase, setCaseOpening, setLastOpenRewards, lastOpenRewards } = useAppStore();
   const [selectedCase, setSelectedCase] = useState<string | null>(null);
@@ -231,82 +238,134 @@ export default function Cases({ onShowReward }: CasesProps) {
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 flex items-center justify-center p-4"
           >
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={closeResult} />
-            
+            <div
+              className="absolute inset-0 bg-black/55 backdrop-blur-sm"
+              onClick={closeResult}
+            />
+
             <motion.div
-              initial={{ scale: 0, y: 50 }}
-              animate={{ scale: 1, y: 0 }}
-              transition={{ type: 'spring', duration: 0.5 }}
-              className="relative z-10 bg-white rounded-3xl p-6 max-w-sm w-full text-center shadow-large"
+              initial={{ scale: 0.9, opacity: 0, y: 24 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.96, opacity: 0, y: 12 }}
+              transition={{ type: 'spring', stiffness: 220, damping: 20 }}
+              className="relative z-10 w-full max-w-xl rounded-[32px] border border-white/60 bg-white/95 p-6 shadow-[0_24px_80px_rgba(24,24,27,0.18)] backdrop-blur-xl sm:p-7"
             >
-              <div className="relative z-10">
-                <h2 className="text-2xl font-bold text-gray-900 mb-2">Case Rewards</h2>
-                <p className="text-gray-500 mb-5">
-                  You received {lastOpenRewards.length} reward{lastOpenRewards.length > 1 ? 's' : ''}!
+              <div className="mb-5 text-center">
+                <h2 className="text-3xl font-bold tracking-tight text-gray-900">
+                  Case Rewards
+                </h2>
+                <p className="mt-2 text-sm text-gray-500">
+                  You received {lastOpenRewards.length}{' '}
+                  {lastOpenRewards.length === 1 ? 'reward' : 'rewards'}.
                 </p>
+              </div>
 
-                <div className={`grid gap-3 mb-6 ${lastOpenRewards.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
-                  {lastOpenRewards.map((reward: CaseReward, index) => {
-                    if (reward.type === 'collectible' && reward.collectible) {
-                      const rarity = reward.collectible.rarity;
-                      return (
-                        <motion.div
-                          key={reward.id}
-                          initial={{ opacity: 0, x: 20 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: index * 0.12 }}
-                          className={`rounded-2xl border p-3 text-left ${rarityConfig[rarity].bg} ${rarityConfig[rarity].glow}`}
-                        >
-                          <div className="text-3xl mb-1">{reward.collectible.image}</div>
-                          <p className="text-sm font-semibold text-gray-900">{reward.collectible.name}</p>
-                          <p className={`text-xs font-medium capitalize ${rarityConfig[rarity].color}`}>{rarity}</p>
-                        </motion.div>
-                      );
-                    }
-
-                    if (reward.type === 'coins') {
-                      return (
-                        <motion.div
-                          key={reward.id}
-                          initial={{ opacity: 0, x: 20 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: index * 0.12 }}
-                          className="rounded-2xl border border-yellow-200 bg-yellow-50 p-3 text-left"
-                        >
-                          <div className="mb-1 flex items-center gap-2 text-yellow-700">
-                            <Coins size={18} />
-                            <span className="text-xs font-semibold uppercase">Coins</span>
-                          </div>
-                          <p className="text-lg font-bold text-yellow-700">+{reward.amount}</p>
-                        </motion.div>
-                      );
-                    }
+              <div
+                className={`mb-6 grid gap-3 ${
+                  lastOpenRewards.length === 1
+                    ? 'grid-cols-1'
+                    : lastOpenRewards.length === 2
+                    ? 'grid-cols-2'
+                    : 'grid-cols-2 sm:grid-cols-3'
+                }`}
+              >
+                {lastOpenRewards.map((reward: CaseReward, index) => {
+                  if (reward.type === 'collectible' && reward.collectible) {
+                    const rarity = reward.collectible.rarity;
 
                     return (
                       <motion.div
                         key={reward.id}
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: index * 0.12 }}
-                        className="rounded-2xl border border-blue-200 bg-blue-50 p-3 text-left"
+                        initial={{ opacity: 0, x: -36, scale: 0.72, rotate: -4 }}
+                        animate={{ opacity: 1, x: 0, scale: 1, rotate: 0 }}
+                        transition={{
+                          type: 'spring',
+                          stiffness: 320,
+                          damping: 18,
+                          delay: index * 0.16,
+                        }}
+                        className={`rounded-[24px] border p-4 text-left ${rarityCardClass[rarity]}`}
                       >
-                        <div className="mb-1 flex items-center gap-2 text-blue-700">
-                          <Zap size={18} />
-                          <span className="text-xs font-semibold uppercase">XP</span>
-                        </div>
-                        <p className="text-lg font-bold text-blue-700">+{reward.amount}</p>
+                        <motion.div
+                          initial={{ scale: 0.7, opacity: 0 }}
+                          animate={{ scale: [1, 1.08, 1], opacity: 1 }}
+                          transition={{
+                            duration: 0.5,
+                            delay: index * 0.16 + 0.05,
+                          }}
+                          className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-white/80 text-4xl shadow-sm"
+                        >
+                          {reward.collectible.image}
+                        </motion.div>
+
+                        <p className="text-base font-semibold text-gray-900">
+                          {reward.collectible.name}
+                        </p>
+                        <p
+                          className={`mt-1 text-xs font-semibold uppercase tracking-wide ${rarityConfig[rarity].color}`}
+                        >
+                          {rarity}
+                        </p>
                       </motion.div>
                     );
-                  })}
-                </div>
-                
-                <button
-                  onClick={closeResult}
-                  className="w-full py-3.5 bg-gradient-to-r from-primary-500 to-pink-500 text-white rounded-xl font-semibold shadow-glow-pink hover:shadow-lg transition-all"
-                >
-                  Awesome! 🎉
-                </button>
+                  }
+
+                  if (reward.type === 'coins') {
+                    return (
+                      <motion.div
+                        key={reward.id}
+                        initial={{ opacity: 0, x: -36, scale: 0.72, rotate: -3 }}
+                        animate={{ opacity: 1, x: 0, scale: 1, rotate: 0 }}
+                        transition={{
+                          type: 'spring',
+                          stiffness: 320,
+                          damping: 18,
+                          delay: index * 0.16,
+                        }}
+                        className="rounded-[24px] border border-yellow-200 bg-yellow-50/90 p-4 text-left shadow-[0_0_24px_rgba(250,204,21,0.18)]"
+                      >
+                        <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-white/80 text-yellow-600 shadow-sm">
+                          <Coins size={30} />
+                        </div>
+                        <p className="text-base font-semibold text-gray-900">Coins</p>
+                        <p className="mt-1 text-lg font-bold text-yellow-700">
+                          +{reward.amount}
+                        </p>
+                      </motion.div>
+                    );
+                  }
+
+                  return (
+                    <motion.div
+                      key={reward.id}
+                      initial={{ opacity: 0, x: -36, scale: 0.72, rotate: -3 }}
+                      animate={{ opacity: 1, x: 0, scale: 1, rotate: 0 }}
+                      transition={{
+                        type: 'spring',
+                        stiffness: 320,
+                        damping: 18,
+                        delay: index * 0.16,
+                      }}
+                      className="rounded-[24px] border border-blue-200 bg-blue-50/90 p-4 text-left shadow-[0_0_24px_rgba(96,165,250,0.18)]"
+                    >
+                      <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-white/80 text-blue-600 shadow-sm">
+                        <Zap size={30} />
+                      </div>
+                      <p className="text-base font-semibold text-gray-900">XP</p>
+                      <p className="mt-1 text-lg font-bold text-blue-700">
+                        +{reward.amount}
+                      </p>
+                    </motion.div>
+                  );
+                })}
               </div>
+
+              <button
+                onClick={closeResult}
+                className="w-full rounded-2xl bg-gradient-to-r from-primary-500 to-pink-500 py-3.5 text-base font-semibold text-white shadow-glow-pink transition hover:brightness-105"
+              >
+                Awesome! 🎉
+              </button>
             </motion.div>
           </motion.div>
         )}
