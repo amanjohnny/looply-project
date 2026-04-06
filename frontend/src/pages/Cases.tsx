@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
-import type { Collectible, Rarity } from '../types';
+import type { Rarity } from '../types';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Box, Zap, Crown, Star, RefreshCw, Sparkles } from 'lucide-react';
+import { Box, RefreshCw, Sparkles } from 'lucide-react';
 
 interface CasesProps {
   onShowReward: () => void;
@@ -38,7 +38,12 @@ export default function Cases({ onShowReward }: CasesProps) {
 
     // Simulate case opening animation
     setTimeout(() => {
-      const result = openCase();
+      const result = openCase(caseType.price);
+      if (!result) {
+        setIsOpening(false);
+        setCaseOpening(false);
+        return;
+      }
       setLastOpenResult(result);
       setIsOpening(false);
       setCaseOpening(false);
