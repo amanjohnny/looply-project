@@ -30,7 +30,7 @@ export default function Auth() {
   };
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#fdfbff] px-4 py-10 sm:py-12">
+    <div className="relative min-h-screen overflow-hidden bg-[#fdfbff] px-4 py-8 sm:py-10">
       {/* Soft ambient background */}
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute -top-28 -left-20 h-72 w-72 rounded-full bg-gradient-to-br from-primary-100/80 to-transparent blur-3xl" />
@@ -39,10 +39,10 @@ export default function Auth() {
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_20%,rgba(255,255,255,0.85),transparent_65%)]" />
       </div>
 
-      <div className="relative z-10 mx-auto flex min-h-[calc(100vh-5rem)] w-full max-w-md items-center justify-center">
+      <div className="relative z-10 mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-md items-center justify-center">
         <div className="w-full">
           {/* Brand block */}
-          <div className="mb-8 text-center sm:mb-10">
+          <div className="mb-7 text-center sm:mb-8">
             <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-3xl border border-white/70 bg-gradient-to-b from-white/90 to-white/60 shadow-[0_10px_30px_rgba(177,133,183,0.15)] backdrop-blur-sm sm:h-24 sm:w-24">
               <div className="h-12 w-12 rounded-2xl border border-gray-200/80 bg-gradient-to-br from-gray-50 via-white to-gray-100/90 sm:h-14 sm:w-14" />
             </div>
@@ -77,7 +77,7 @@ export default function Auth() {
             </div>
 
             {/* Form */}
-            <form onSubmit={handleSubmit} className="space-y-[18px]">
+            <form onSubmit={handleSubmit} className="space-y-4">
               {authView === 'register' && (
                 <div>
                   <label className="mb-2 block text-sm font-medium text-gray-700">Username</label>
@@ -88,10 +88,10 @@ export default function Auth() {
                       value={formData.username}
                       onChange={handleChange}
                       placeholder="Choose a username"
-                      className="input-field h-12 rounded-xl pl-14 pr-4"
+                      className="input-field h-12 rounded-xl pl-12 pr-4"
                       required={authView === 'register'}
                     />
-                    <div className="pointer-events-none absolute left-0 top-1/2 flex h-12 w-12 -translate-y-1/2 items-center justify-center text-gray-400">
+                    <div className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
                       <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                       </svg>
@@ -111,10 +111,10 @@ export default function Auth() {
                     value={formData.email}
                     onChange={handleChange}
                     placeholder={authView === 'login' ? 'Enter email or phone number' : 'Enter your email'}
-                    className="input-field h-12 rounded-xl pl-14 pr-4"
+                    className="input-field h-12 rounded-xl pl-12 pr-4"
                     required
                   />
-                  <div className="pointer-events-none absolute left-0 top-1/2 flex h-12 w-12 -translate-y-1/2 items-center justify-center text-gray-400">
+                  <div className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
                     <Mail size={18} />
                   </div>
                 </div>
@@ -129,10 +129,10 @@ export default function Auth() {
                     value={formData.password}
                     onChange={handleChange}
                     placeholder="Enter your password"
-                    className="input-field h-12 rounded-xl pl-14 pr-12"
+                    className="input-field h-12 rounded-xl pl-12 pr-12"
                     required
                   />
-                  <div className="pointer-events-none absolute left-0 top-1/2 flex h-12 w-12 -translate-y-1/2 items-center justify-center text-gray-400">
+                  <div className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
                     <Lock size={18} />
                   </div>
                   <button
@@ -155,10 +155,10 @@ export default function Auth() {
                       value={formData.confirmPassword}
                       onChange={handleChange}
                       placeholder="Confirm your password"
-                      className="input-field h-12 rounded-xl pl-14 pr-4"
+                      className="input-field h-12 rounded-xl pl-12 pr-4"
                       required={authView === 'register'}
                     />
-                    <div className="pointer-events-none absolute left-0 top-1/2 flex h-12 w-12 -translate-y-1/2 items-center justify-center text-gray-400">
+                    <div className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">
                       <Lock size={18} />
                     </div>
                   </div>
