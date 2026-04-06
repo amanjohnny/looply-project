@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
-import type { Collectible, Rarity } from '../types';
+import type { Rarity } from '../types';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Box, Zap, Crown, Star, RefreshCw, Sparkles } from 'lucide-react';
+import { Box, RefreshCw, Sparkles } from 'lucide-react';
 
 interface CasesProps {
   onShowReward: () => void;
@@ -22,7 +22,7 @@ const rarityConfig: Record<Rarity, { color: string; bg: string; icon: string; ch
 };
 
 export default function Cases({ onShowReward }: CasesProps) {
-  const { user, openCase, setCaseOpening, setLastOpenResult, lastOpenResult } = useAppStore();
+  const { user, collectibles, openCase, addCollectible, setCaseOpening, setLastOpenResult, lastOpenResult } = useAppStore();
   const [selectedCase, setSelectedCase] = useState<string | null>(null);
   const [isOpening, setIsOpening] = useState(false);
   const [showResult, setShowResult] = useState(false);
@@ -38,7 +38,13 @@ export default function Cases({ onShowReward }: CasesProps) {
 
     // Simulate case opening animation
     setTimeout(() => {
-      const result = openCase();
+      const result = openCase(caseType.price);
+      if (!result) {
+        setIsOpening(false);
+        setCaseOpening(false);
+        return;
+      }
+      addCollectible(result);
       setLastOpenResult(result);
       setIsOpening(false);
       setCaseOpening(false);
@@ -77,11 +83,11 @@ export default function Cases({ onShowReward }: CasesProps) {
             <div className="text-xs text-gray-500">Opened</div>
           </div>
           <div className="bg-white rounded-2xl p-4 shadow-card text-center">
-            <div className="text-2xl font-bold text-blue-600">8</div>
+            <div className="text-2xl font-bold text-blue-600">{collectibles.length}</div>
             <div className="text-xs text-gray-500">Collected</div>
           </div>
           <div className="bg-white rounded-2xl p-4 shadow-card text-center">
-            <div className="text-2xl font-bold text-purple-600">2</div>
+            <div className="text-2xl font-bold text-purple-600">{collectibles.filter((item) => item.rarity === 'legendary').length}</div>
             <div className="text-xs text-gray-500">Legendary</div>
           </div>
         </div>
@@ -165,19 +171,25 @@ export default function Cases({ onShowReward }: CasesProps) {
         {/* Recent Collection */}
         <div className="bg-white rounded-2xl p-5 shadow-card">
           <h3 className="font-semibold text-gray-900 mb-4">Recent Collection</h3>
-          
-          <div className="grid grid-cols-4 gap-3">
-            {['🐱', '🦉', '🦊', '🐰', '🐼', '🐉', '🦁', '🦄'].map((emoji, i) => (
-              <div 
-                key={i}
-                className={`aspect-square rounded-xl flex items-center justify-center text-3xl ${
-                  i >= 6 ? 'rarity-legendary' : i >= 4 ? 'rarity-epic' : i >= 2 ? 'rarity-rare' : 'bg-gray-100'
-                }`}
-              >
-                {emoji}
-              </div>
-            ))}
-          </div>
+
+          {collectibles.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50/70 p-4 text-center">
+              <p className="text-sm text-gray-500">No collectibles yet — open a case to start your collection.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-4 gap-3">
+              {[...collectibles].slice(-8).reverse().map((item) => (
+                <div
+                  key={item.id}
+                  className={`aspect-square rounded-xl flex items-center justify-center text-3xl ${
+                    item.rarity === 'legendary' ? 'rarity-legendary' : item.rarity === 'epic' ? 'rarity-epic' : item.rarity === 'rare' ? 'rarity-rare' : 'bg-gray-100'
+                  }`}
+                >
+                  {item.image}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 

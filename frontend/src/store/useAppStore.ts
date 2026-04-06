@@ -37,7 +37,7 @@ interface AppState {
   completeChallenge: (challengeId: string) => void;
   addPost: (post: UserPost) => void;
   likePost: (postId: string) => void;
-  openCase: () => Collectible;
+  openCase: (casePrice: number) => Collectible | null;
   setCaseOpening: (opening: boolean) => void;
   setLastOpenResult: (result: Collectible | null) => void;
   addCollectible: (collectible: Collectible) => void;
@@ -110,7 +110,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   completedChallenges: [],
   posts: mockPosts,
   stories: mockStories,
-  collectibles: mockCollectibles,
+  collectibles: [],
   caseOpening: false,
   lastOpenResult: null,
   groups: mockGroups,
@@ -146,7 +146,16 @@ export const useAppStore = create<AppState>((set, get) => ({
     ),
   })),
   
-  openCase: () => {
+  openCase: (casePrice) => {
+    const currentCoins = get().user.coins;
+    if (currentCoins < casePrice) {
+      return null;
+    }
+
+    set((state) => ({
+      user: { ...state.user, coins: state.user.coins - casePrice },
+    }));
+
     const random = Math.random();
     let rarity: Rarity;
     
@@ -155,10 +164,14 @@ export const useAppStore = create<AppState>((set, get) => ({
     else if (random < 0.9) rarity = 'epic';
     else rarity = 'legendary';
     
-    const availableCollectibles = get().collectibles.filter(c => c.rarity === rarity);
+    const availableCollectibles = mockCollectibles.filter(c => c.rarity === rarity);
     const result = availableCollectibles[Math.floor(Math.random() * availableCollectibles.length)] || availableCollectibles[0];
     
-    return { ...result, obtainedAt: new Date() };
+    return {
+      ...result,
+      id: `${result.id}-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      obtainedAt: new Date(),
+    };
   },
   
   setCaseOpening: (opening) => set({ caseOpening: opening }),

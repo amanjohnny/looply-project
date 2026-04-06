@@ -1,7 +1,7 @@
 import { useAppStore } from '../store/useAppStore';
 import type { Challenge } from '../types';
 import { motion } from 'framer-motion';
-import { Star, CheckCircle, Camera, Clock, Zap, Award } from 'lucide-react';
+import { CheckCircle, Camera } from 'lucide-react';
 
 const difficultyColors = {
   easy: 'text-green-600 bg-green-50',
