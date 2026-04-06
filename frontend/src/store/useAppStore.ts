@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { User, Challenge, UserPost, Collectible, Group, Rarity } from '../types';
+import type { User, Challenge, UserPost, Collectible, Group, Rarity, CaseReward, CaseType, RewardType } from '../types';
 
 interface AppState {
   // Auth state
@@ -20,7 +20,7 @@ interface AppState {
   // Collectibles
   collectibles: Collectible[];
   caseOpening: boolean;
-  lastOpenResult: Collectible | null;
+  lastOpenRewards: CaseReward[];
   
   // Groups
   groups: Group[];
@@ -37,9 +37,9 @@ interface AppState {
   completeChallenge: (challengeId: string) => void;
   addPost: (post: UserPost) => void;
   likePost: (postId: string) => void;
-  openCase: () => Collectible;
+  openCase: (caseType: CaseType, casePrice: number) => CaseReward[] | null;
   setCaseOpening: (opening: boolean) => void;
-  setLastOpenResult: (result: Collectible | null) => void;
+  setLastOpenRewards: (rewards: CaseReward[]) => void;
   addCollectible: (collectible: Collectible) => void;
   selectGroup: (group: Group | null) => void;
   addCoins: (amount: number) => void;
@@ -91,6 +91,51 @@ const mockGroups: Group[] = [
   { id: '4', name: 'Science Club', description: 'Explore the wonders of science', avatar: '🔬', memberCount: 178, challengesCreated: 54, ownerId: 'u4' },
 ];
 
+const caseRewardConfig: Record<CaseType, {
+  rewardCount: { min: number; max: number };
+  rewardChances: Record<RewardType, number>;
+  coinRange: { min: number; max: number };
+  xpRange: { min: number; max: number };
+}> = {
+  basic: {
+    rewardCount: { min: 1, max: 1 },
+    rewardChances: { collectible: 50, coins: 30, xp: 20 },
+    coinRange: { min: 20, max: 60 },
+    xpRange: { min: 10, max: 25 },
+  },
+  premium: {
+    rewardCount: { min: 1, max: 3 },
+    rewardChances: { collectible: 45, coins: 30, xp: 25 },
+    coinRange: { min: 40, max: 120 },
+    xpRange: { min: 20, max: 60 },
+  },
+  deluxe: {
+    rewardCount: { min: 2, max: 5 },
+    rewardChances: { collectible: 50, coins: 25, xp: 25 },
+    coinRange: { min: 80, max: 250 },
+    xpRange: { min: 40, max: 120 },
+  },
+};
+
+const getRandomInt = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
+
+const pickRewardType = (caseType: CaseType): RewardType => {
+  const roll = Math.random() * 100;
+  const chances = caseRewardConfig[caseType].rewardChances;
+
+  if (roll < chances.collectible) return 'collectible';
+  if (roll < chances.collectible + chances.coins) return 'coins';
+  return 'xp';
+};
+
+const pickRarity = (): Rarity => {
+  const roll = Math.random();
+  if (roll < 0.5) return 'common';
+  if (roll < 0.75) return 'rare';
+  if (roll < 0.9) return 'epic';
+  return 'legendary';
+};
+
 export const useAppStore = create<AppState>((set, get) => ({
   // Auth
   isAuthenticated: false,
@@ -110,9 +155,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   completedChallenges: [],
   posts: mockPosts,
   stories: mockStories,
-  collectibles: mockCollectibles,
+  collectibles: [],
   caseOpening: false,
-  lastOpenResult: null,
+  lastOpenRewards: [],
   groups: mockGroups,
   selectedGroup: null,
   currentPage: 'login',
@@ -146,24 +191,74 @@ export const useAppStore = create<AppState>((set, get) => ({
     ),
   })),
   
-  openCase: () => {
-    const random = Math.random();
-    let rarity: Rarity;
-    
-    if (random < 0.5) rarity = 'common';
-    else if (random < 0.75) rarity = 'rare';
-    else if (random < 0.9) rarity = 'epic';
-    else rarity = 'legendary';
-    
-    const availableCollectibles = get().collectibles.filter(c => c.rarity === rarity);
-    const result = availableCollectibles[Math.floor(Math.random() * availableCollectibles.length)] || availableCollectibles[0];
-    
-    return { ...result, obtainedAt: new Date() };
+  openCase: (caseType, casePrice) => {
+    const currentCoins = get().user.coins;
+    if (currentCoins < casePrice) {
+      return null;
+    }
+
+    const config = caseRewardConfig[caseType];
+    const rewardsCount = getRandomInt(config.rewardCount.min, config.rewardCount.max);
+    const rewards: CaseReward[] = [];
+    const wonCollectibles: Collectible[] = [];
+    let wonCoins = 0;
+    let wonXp = 0;
+
+    for (let i = 0; i < rewardsCount; i++) {
+      const rewardType = pickRewardType(caseType);
+      const rewardId = `${Date.now()}-${i}-${Math.floor(Math.random() * 100000)}`;
+
+      if (rewardType === 'collectible') {
+        const rarity = pickRarity();
+        const pool = mockCollectibles.filter((item) => item.rarity === rarity);
+        const base = pool[Math.floor(Math.random() * pool.length)] || pool[0];
+        const collectible: Collectible = {
+          ...base,
+          id: `${base.id}-${rewardId}`,
+          obtainedAt: new Date(),
+        };
+        wonCollectibles.push(collectible);
+        rewards.push({
+          id: rewardId,
+          type: 'collectible',
+          collectible,
+          rarity: collectible.rarity,
+        });
+      } else if (rewardType === 'coins') {
+        const amount = getRandomInt(config.coinRange.min, config.coinRange.max);
+        wonCoins += amount;
+        rewards.push({
+          id: rewardId,
+          type: 'coins',
+          amount,
+        });
+      } else {
+        const amount = getRandomInt(config.xpRange.min, config.xpRange.max);
+        wonXp += amount;
+        rewards.push({
+          id: rewardId,
+          type: 'xp',
+          amount,
+        });
+      }
+    }
+
+    set((state) => ({
+      user: {
+        ...state.user,
+        coins: state.user.coins - casePrice + wonCoins,
+        xp: state.user.xp + wonXp,
+      },
+      collectibles: [...state.collectibles, ...wonCollectibles],
+      lastOpenRewards: rewards,
+    }));
+
+    return rewards;
   },
   
   setCaseOpening: (opening) => set({ caseOpening: opening }),
   
-  setLastOpenResult: (result) => set({ lastOpenResult: result }),
+  setLastOpenRewards: (rewards) => set({ lastOpenRewards: rewards }),
   
   addCollectible: (collectible) => set((state) => ({ collectibles: [...state.collectibles, collectible] })),
   

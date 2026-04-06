@@ -1,17 +1,17 @@
 import { useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
-import type { Collectible, Rarity } from '../types';
+import type { Rarity, CaseType, CaseReward } from '../types';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Box, Zap, Crown, Star, RefreshCw, Sparkles } from 'lucide-react';
+import { Box, RefreshCw, Sparkles, Coins, Zap } from 'lucide-react';
 
 interface CasesProps {
   onShowReward: () => void;
 }
 
 const caseTypes = [
-  { id: 'basic', name: 'Basic Case', price: 100, color: 'from-gray-400 to-gray-500', icon: '📦' },
-  { id: 'premium', name: 'Premium Case', price: 250, color: 'from-primary-400 to-pink-500', icon: '✨' },
-  { id: 'deluxe', name: 'Deluxe Case', price: 500, color: 'from-yellow-400 to-orange-500', icon: '👑' },
+  { id: 'basic', name: 'Basic Case', price: 100, color: 'from-gray-400 to-gray-500', icon: '📦', rewardText: '1 reward' },
+  { id: 'premium', name: 'Premium Case', price: 250, color: 'from-primary-400 to-pink-500', icon: '✨', rewardText: '1-3 rewards' },
+  { id: 'deluxe', name: 'Deluxe Case', price: 500, color: 'from-yellow-400 to-orange-500', icon: '👑', rewardText: '2-5 rewards' },
 ];
 
 const rarityConfig: Record<Rarity, { color: string; bg: string; icon: string; chance: string; glow: string }> = {
@@ -21,8 +21,15 @@ const rarityConfig: Record<Rarity, { color: string; bg: string; icon: string; ch
   legendary: { color: 'text-yellow-600', bg: 'bg-yellow-50 border-yellow-300', icon: '👑', chance: '10%', glow: 'shadow-yellow-400/50 animate-pulse' },
 };
 
+const rarityCardClass: Record<Rarity, string> = {
+  common: 'border-gray-200 bg-white',
+  rare: 'border-blue-200 bg-blue-50/80 shadow-[0_0_24px_rgba(96,165,250,0.18)]',
+  epic: 'border-purple-200 bg-purple-50/80 shadow-[0_0_28px_rgba(168,85,247,0.22)]',
+  legendary: 'border-yellow-300 bg-yellow-50/90 shadow-[0_0_32px_rgba(251,191,36,0.28)]',
+};
+
 export default function Cases({ onShowReward }: CasesProps) {
-  const { user, openCase, setCaseOpening, setLastOpenResult, lastOpenResult } = useAppStore();
+  const { user, collectibles, openCase, setCaseOpening, setLastOpenRewards, lastOpenRewards } = useAppStore();
   const [selectedCase, setSelectedCase] = useState<string | null>(null);
   const [isOpening, setIsOpening] = useState(false);
   const [showResult, setShowResult] = useState(false);
@@ -38,8 +45,13 @@ export default function Cases({ onShowReward }: CasesProps) {
 
     // Simulate case opening animation
     setTimeout(() => {
-      const result = openCase();
-      setLastOpenResult(result);
+      const rewards = openCase(caseType.id as CaseType, caseType.price);
+      if (!rewards) {
+        setIsOpening(false);
+        setCaseOpening(false);
+        return;
+      }
+      setLastOpenRewards(rewards);
       setIsOpening(false);
       setCaseOpening(false);
       setShowResult(true);
@@ -77,11 +89,11 @@ export default function Cases({ onShowReward }: CasesProps) {
             <div className="text-xs text-gray-500">Opened</div>
           </div>
           <div className="bg-white rounded-2xl p-4 shadow-card text-center">
-            <div className="text-2xl font-bold text-blue-600">8</div>
+            <div className="text-2xl font-bold text-blue-600">{collectibles.length}</div>
             <div className="text-xs text-gray-500">Collected</div>
           </div>
           <div className="bg-white rounded-2xl p-4 shadow-card text-center">
-            <div className="text-2xl font-bold text-purple-600">2</div>
+            <div className="text-2xl font-bold text-purple-600">{collectibles.filter((item) => item.rarity === 'legendary').length}</div>
             <div className="text-xs text-gray-500">Legendary</div>
           </div>
         </div>
@@ -112,10 +124,11 @@ export default function Cases({ onShowReward }: CasesProps) {
                   {/* Case info */}
                   <div className="flex-1">
                     <h3 className="font-semibold text-gray-900 text-lg">{caseType.name}</h3>
-                    <div className="flex items-center gap-2 mt-1">
+                    <div className="flex items-center gap-2 mt-1 mb-1">
                       <span className="text-yellow-500">🪙</span>
                       <span className="font-medium text-gray-700">{caseType.price}</span>
                     </div>
+                    <p className="text-xs text-gray-400">{caseType.rewardText}</p>
                   </div>
                   
                   {/* Open button */}
@@ -165,19 +178,25 @@ export default function Cases({ onShowReward }: CasesProps) {
         {/* Recent Collection */}
         <div className="bg-white rounded-2xl p-5 shadow-card">
           <h3 className="font-semibold text-gray-900 mb-4">Recent Collection</h3>
-          
-          <div className="grid grid-cols-4 gap-3">
-            {['🐱', '🦉', '🦊', '🐰', '🐼', '🐉', '🦁', '🦄'].map((emoji, i) => (
-              <div 
-                key={i}
-                className={`aspect-square rounded-xl flex items-center justify-center text-3xl ${
-                  i >= 6 ? 'rarity-legendary' : i >= 4 ? 'rarity-epic' : i >= 2 ? 'rarity-rare' : 'bg-gray-100'
-                }`}
-              >
-                {emoji}
-              </div>
-            ))}
-          </div>
+
+          {collectibles.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50/70 p-4 text-center">
+              <p className="text-sm text-gray-500">No collectibles yet — open a case to start your collection.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-4 gap-3">
+              {[...collectibles].slice(-8).reverse().map((item) => (
+                <div
+                  key={item.id}
+                  className={`aspect-square rounded-xl flex items-center justify-center text-3xl ${
+                    item.rarity === 'legendary' ? 'rarity-legendary' : item.rarity === 'epic' ? 'rarity-epic' : item.rarity === 'rare' ? 'rarity-rare' : 'bg-gray-100'
+                  }`}
+                >
+                  {item.image}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -212,56 +231,141 @@ export default function Cases({ onShowReward }: CasesProps) {
 
       {/* Reward Result Modal */}
       <AnimatePresence>
-        {showResult && lastOpenResult && (
+        {showResult && lastOpenRewards.length > 0 && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-50 flex items-center justify-center p-4"
           >
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={closeResult} />
-            
+            <div
+              className="absolute inset-0 bg-black/55 backdrop-blur-sm"
+              onClick={closeResult}
+            />
+
             <motion.div
-              initial={{ scale: 0, y: 50 }}
-              animate={{ scale: 1, y: 0 }}
-              transition={{ type: 'spring', duration: 0.5 }}
-              className={`relative z-10 bg-white rounded-3xl p-8 max-w-sm w-full text-center shadow-large ${rarityConfig[lastOpenResult.rarity].glow}`}
+              initial={{ scale: 0.9, opacity: 0, y: 24 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.96, opacity: 0, y: 12 }}
+              transition={{ type: 'spring', stiffness: 220, damping: 20 }}
+              className="relative z-10 w-full max-w-xl rounded-[32px] border border-white/60 bg-white/95 p-6 shadow-[0_24px_80px_rgba(24,24,27,0.18)] backdrop-blur-xl sm:p-7"
             >
-              {/* Glow effect */}
-              <div className={`absolute inset-0 rounded-3xl opacity-30 bg-gradient-to-br ${
-                lastOpenResult.rarity === 'legendary' ? 'from-yellow-300 to-orange-400' :
-                lastOpenResult.rarity === 'epic' ? 'from-purple-300 to-pink-400' :
-                lastOpenResult.rarity === 'rare' ? 'from-blue-300 to-cyan-400' :
-                'from-gray-300 to-gray-400'
-              } blur-xl`} />
-              
-              <div className="relative z-10">
-                {/* Rarity badge */}
-                <div className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium mb-4 ${rarityConfig[lastOpenResult.rarity].bg}`}>
-                  <span>{rarityConfig[lastOpenResult.rarity].icon}</span>
-                  <span className={rarityConfig[lastOpenResult.rarity].color}>{lastOpenResult.rarity.toUpperCase()}</span>
-                </div>
-                
-                {/* Item */}
-                <motion.div
-                  initial={{ scale: 0, rotate: -360 }}
-                  animate={{ scale: 1, rotate: 0 }}
-                  transition={{ delay: 0.2, type: 'spring' }}
-                  className="text-8xl mb-4"
-                >
-                  {lastOpenResult.image}
-                </motion.div>
-                
-                <h2 className="text-2xl font-bold text-gray-900 mb-2">{lastOpenResult.name}</h2>
-                <p className="text-gray-500 mb-6">{lastOpenResult.description}</p>
-                
-                <button
-                  onClick={closeResult}
-                  className="w-full py-3.5 bg-gradient-to-r from-primary-500 to-pink-500 text-white rounded-xl font-semibold shadow-glow-pink hover:shadow-lg transition-all"
-                >
-                  Awesome! 🎉
-                </button>
+              <div className="mb-5 text-center">
+                <h2 className="text-3xl font-bold tracking-tight text-gray-900">
+                  Case Rewards
+                </h2>
+                <p className="mt-2 text-sm text-gray-500">
+                  You received {lastOpenRewards.length}{' '}
+                  {lastOpenRewards.length === 1 ? 'reward' : 'rewards'}.
+                </p>
               </div>
+
+              <div
+                className={`mb-6 grid gap-3 ${
+                  lastOpenRewards.length === 1
+                    ? 'grid-cols-1'
+                    : lastOpenRewards.length === 2
+                    ? 'grid-cols-2'
+                    : 'grid-cols-2 sm:grid-cols-3'
+                }`}
+              >
+                {lastOpenRewards.map((reward: CaseReward, index) => {
+                  if (reward.type === 'collectible' && reward.collectible) {
+                    const rarity = reward.collectible.rarity;
+
+                    return (
+                      <motion.div
+                        key={reward.id}
+                        initial={{ opacity: 0, x: -36, scale: 0.72, rotate: -4 }}
+                        animate={{ opacity: 1, x: 0, scale: 1, rotate: 0 }}
+                        transition={{
+                          type: 'spring',
+                          stiffness: 320,
+                          damping: 18,
+                          delay: index * 0.16,
+                        }}
+                        className={`rounded-[24px] border p-4 text-left ${rarityCardClass[rarity]}`}
+                      >
+                        <motion.div
+                          initial={{ scale: 0.7, opacity: 0 }}
+                          animate={{ scale: [1, 1.08, 1], opacity: 1 }}
+                          transition={{
+                            duration: 0.5,
+                            delay: index * 0.16 + 0.05,
+                          }}
+                          className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-white/80 text-4xl shadow-sm"
+                        >
+                          {reward.collectible.image}
+                        </motion.div>
+
+                        <p className="text-base font-semibold text-gray-900">
+                          {reward.collectible.name}
+                        </p>
+                        <p
+                          className={`mt-1 text-xs font-semibold uppercase tracking-wide ${rarityConfig[rarity].color}`}
+                        >
+                          {rarity}
+                        </p>
+                      </motion.div>
+                    );
+                  }
+
+                  if (reward.type === 'coins') {
+                    return (
+                      <motion.div
+                        key={reward.id}
+                        initial={{ opacity: 0, x: -36, scale: 0.72, rotate: -3 }}
+                        animate={{ opacity: 1, x: 0, scale: 1, rotate: 0 }}
+                        transition={{
+                          type: 'spring',
+                          stiffness: 320,
+                          damping: 18,
+                          delay: index * 0.16,
+                        }}
+                        className="rounded-[24px] border border-yellow-200 bg-yellow-50/90 p-4 text-left shadow-[0_0_24px_rgba(250,204,21,0.18)]"
+                      >
+                        <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-white/80 text-yellow-600 shadow-sm">
+                          <Coins size={30} />
+                        </div>
+                        <p className="text-base font-semibold text-gray-900">Coins</p>
+                        <p className="mt-1 text-lg font-bold text-yellow-700">
+                          +{reward.amount}
+                        </p>
+                      </motion.div>
+                    );
+                  }
+
+                  return (
+                    <motion.div
+                      key={reward.id}
+                      initial={{ opacity: 0, x: -36, scale: 0.72, rotate: -3 }}
+                      animate={{ opacity: 1, x: 0, scale: 1, rotate: 0 }}
+                      transition={{
+                        type: 'spring',
+                        stiffness: 320,
+                        damping: 18,
+                        delay: index * 0.16,
+                      }}
+                      className="rounded-[24px] border border-blue-200 bg-blue-50/90 p-4 text-left shadow-[0_0_24px_rgba(96,165,250,0.18)]"
+                    >
+                      <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-white/80 text-blue-600 shadow-sm">
+                        <Zap size={30} />
+                      </div>
+                      <p className="text-base font-semibold text-gray-900">XP</p>
+                      <p className="mt-1 text-lg font-bold text-blue-700">
+                        +{reward.amount}
+                      </p>
+                    </motion.div>
+                  );
+                })}
+              </div>
+
+              <button
+                onClick={closeResult}
+                className="w-full rounded-2xl bg-gradient-to-r from-primary-500 to-pink-500 py-3.5 text-base font-semibold text-white shadow-glow-pink transition hover:brightness-105"
+              >
+                Awesome! 🎉
+              </button>
             </motion.div>
           </motion.div>
         )}
