@@ -44,7 +44,6 @@ export default function Cases({ onShowReward }: CasesProps) {
         setCaseOpening(false);
         return;
       }
-      addCollectible(result);
       setLastOpenResult(result);
       setIsOpening(false);
       setCaseOpening(false);
