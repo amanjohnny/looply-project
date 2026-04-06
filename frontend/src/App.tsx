@@ -29,7 +29,7 @@ const pageVariants = {
 
 function App() {
   const { currentPage, isAuthenticated, setCurrentPage } = useAppStore();
-  const [showCelebration, setShowCelebration] = useState(false);
+ 
 
   // Show auth screen if not authenticated
   if (!isAuthenticated) {
@@ -106,35 +106,7 @@ function App() {
         </div>
       </nav>
 
-      {/* Celebration Modal */}
-      <AnimatePresence>
-        {showCelebration && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          >
-            <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setShowCelebration(false)} />
-            <motion.div
-              initial={{ scale: 0, rotate: -180 }}
-              animate={{ scale: 1, rotate: 0 }}
-              transition={{ type: 'spring', duration: 0.5 }}
-              className="relative z-10 bg-white rounded-3xl p-8 text-center max-w-sm mx-4"
-            >
-              <div className="text-6xl mb-4">🎉</div>
-              <h2 className="text-2xl font-bold gradient-text mb-2">Amazing!</h2>
-              <p className="text-gray-500 mb-6">You got a new collectible!</p>
-              <button 
-                onClick={() => setShowCelebration(false)}
-                className="w-full py-3 bg-gradient-to-r from-primary-500 to-pink-500 text-white rounded-xl font-semibold"
-              >
-                Awesome!
-              </button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      
     </div>
   );
 }
