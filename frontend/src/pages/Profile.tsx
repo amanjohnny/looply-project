@@ -1,7 +1,7 @@
 import { useAppStore } from '../store/useAppStore';
 import type { Rarity, Collectible } from '../types';
 import { motion } from 'framer-motion';
-import { Settings, Edit, Star, Zap, Flame, Trophy, Target, Award, Grid, List } from 'lucide-react';
+import { Settings, Edit, Star, Zap, Flame, Trophy, Target, Award } from 'lucide-react';
 
 const rarityConfig: Record<Rarity, { color: string; bg: string; border: string; glow: string }> = {
   common: { color: 'text-gray-600', bg: 'bg-gray-100', border: 'border-gray-200', glow: '' },
@@ -11,7 +11,7 @@ const rarityConfig: Record<Rarity, { color: string; bg: string; border: string; 
 };
 
 export default function Profile() {
-  const { user, challenges, collectibles } = useAppStore();
+  const { user, challenges, collectibles, setCurrentPage, openEditProfile } = useAppStore();
   
   const completedChallenges = challenges.filter(c => c.completed).length;
   const totalChallenges = challenges.length;
@@ -65,7 +65,7 @@ export default function Profile() {
             </div>
             
             {/* Edit button */}
-            <button className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+            <button onClick={openEditProfile} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
               <Edit className="text-gray-400" size={20} />
             </button>
           </div>
@@ -114,46 +114,55 @@ export default function Profile() {
 
         {/* Collection */}
         <div className="bg-white rounded-3xl p-5 shadow-card">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-2">
             <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
               <Award className="text-yellow-500" size={20} />
-              My Collection
+              Looply Collection
             </h3>
-            <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
-              <button className="p-1.5 bg-white rounded-md shadow-soft">
-                <Grid size={16} className="text-gray-600" />
-              </button>
-              <button className="p-1.5 hover:bg-white rounded-md transition-colors">
-                <List size={16} className="text-gray-400" />
+            <span className="text-xs text-gray-400">{collectibles.length} items</span>
+          </div>
+          <p className="text-sm text-gray-500 mb-4">Collectibles you win from opening cases appear here instantly.</p>
+          
+          {collectibles.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50/70 px-4 py-6 text-center">
+              <p className="text-sm text-gray-500">No collectibles yet — open a case to start your collection.</p>
+              <button
+                onClick={() => setCurrentPage('cases')}
+                className="mt-4 inline-flex items-center rounded-xl bg-gradient-to-r from-primary-500 to-pink-500 px-4 py-2 text-sm font-semibold text-white shadow-glow-pink"
+              >
+                Open a Case
               </button>
             </div>
-          </div>
-          
-          {/* Tabs by rarity */}
-          {(['legendary', 'epic', 'rare', 'common'] as Rarity[]).map((rarity) => {
-            const items = collectiblesByRarity[rarity] || [];
-            if (items.length === 0) return null;
-            
-            return (
-              <div key={rarity} className="mb-4 last:mb-0">
-                <div className={`flex items-center gap-2 mb-3 ${rarityConfig[rarity].color}`}>
-                  <span className="text-sm font-medium capitalize">{rarity}</span>
-                  <span className="text-xs opacity-60">({items.length})</span>
-                </div>
-                <div className="grid grid-cols-4 gap-2">
-                  {items.map((item) => (
-                    <motion.div
-                      key={item.id}
-                      whileHover={{ scale: 1.05 }}
-                      className={`aspect-square rounded-xl ${rarityConfig[rarity].bg} ${rarityConfig[rarity].border} border flex items-center justify-center text-2xl ${rarityConfig[rarity].glow} shadow-sm`}
-                    >
-                      {item.image}
-                    </motion.div>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
+          ) : (
+            <div className="space-y-4">
+              {(['legendary', 'epic', 'rare', 'common'] as Rarity[]).map((rarity) => {
+                const items = collectiblesByRarity[rarity] || [];
+                if (items.length === 0) return null;
+
+                return (
+                  <div key={rarity} className="last:mb-0">
+                    <div className={`mb-3 flex items-center gap-2 ${rarityConfig[rarity].color}`}>
+                      <span className="text-sm font-semibold capitalize">{rarity}</span>
+                      <span className="text-xs opacity-60">({items.length})</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      {items.map((item) => (
+                        <motion.div
+                          key={item.id}
+                          whileHover={{ scale: 1.02 }}
+                          className={`rounded-2xl border p-3 ${rarityConfig[rarity].bg} ${rarityConfig[rarity].border} ${rarityConfig[rarity].glow}`}
+                        >
+                          <div className="mb-2 text-3xl">{item.image}</div>
+                          <p className="text-sm font-semibold text-gray-900">{item.name}</p>
+                          <p className={`mt-1 text-xs font-medium capitalize ${rarityConfig[rarity].color}`}>{item.rarity}</p>
+                        </motion.div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Achievements */}

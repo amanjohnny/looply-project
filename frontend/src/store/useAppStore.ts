@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { User, Challenge, UserPost, Collectible, Group, Rarity } from '../types';
+import type { User, Challenge, UserPost, Collectible, Group, Rarity, CaseReward, CaseType, RewardType } from '../types';
 
 interface AppState {
   // Auth state
@@ -20,11 +20,14 @@ interface AppState {
   // Collectibles
   collectibles: Collectible[];
   caseOpening: boolean;
-  lastOpenResult: Collectible | null;
+  lastOpenRewards: CaseReward[];
   
   // Groups
   groups: Group[];
   selectedGroup: Group | null;
+  communityUsers: User[];
+  selectedUser: User | null;
+  userCollectibleShowcase: Record<string, Collectible[]>;
   
   // Navigation
   currentPage: string;
@@ -37,11 +40,14 @@ interface AppState {
   completeChallenge: (challengeId: string) => void;
   addPost: (post: UserPost) => void;
   likePost: (postId: string) => void;
-  openCase: () => Collectible;
+  openCase: (caseType: CaseType, casePrice: number) => CaseReward[] | null;
   setCaseOpening: (opening: boolean) => void;
-  setLastOpenResult: (result: Collectible | null) => void;
+  setLastOpenRewards: (rewards: CaseReward[]) => void;
   addCollectible: (collectible: Collectible) => void;
   selectGroup: (group: Group | null) => void;
+  openUserProfile: (userId: string) => void;
+  openEditProfile: () => void;
+  updateCurrentUserProfile: (payload: { username: string; bio: string; avatar: string }) => void;
   addCoins: (amount: number) => void;
   markStoryViewed: (storyId: string) => void;
 }
@@ -91,6 +97,71 @@ const mockGroups: Group[] = [
   { id: '4', name: 'Science Club', description: 'Explore the wonders of science', avatar: '🔬', memberCount: 178, challengesCreated: 54, ownerId: 'u4' },
 ];
 
+const mockCommunityUsers: User[] = [
+  { id: 'u1', username: 'StudentPro', avatar: '🎮', bio: 'Building better study habits every day 📚', level: 12, xp: 2450, coins: 1250, streak: 7, joinedAt: new Date('2024-09-15') },
+  { id: 'u2', username: 'BookWorm99', avatar: '📖', bio: 'Reading challenges and cozy notes.', level: 10, xp: 1920, coins: 980, streak: 5, joinedAt: new Date('2024-08-12') },
+  { id: 'u3', username: 'ScienceGirl', avatar: '🔬', bio: 'Small experiments, big curiosity.', level: 14, xp: 2780, coins: 1330, streak: 9, joinedAt: new Date('2024-07-02') },
+  { id: 'u4', username: 'MusicKid', avatar: '🎵', bio: 'Study beats + piano practice.', level: 9, xp: 1680, coins: 860, streak: 4, joinedAt: new Date('2024-06-23') },
+  { id: 'u5', username: 'ArtisticSoul', avatar: '🎨', bio: 'Sketching ideas between chapters.', level: 11, xp: 2140, coins: 1040, streak: 6, joinedAt: new Date('2024-05-30') },
+];
+
+const mockCollectibleShowcase: Record<string, Collectible[]> = {
+  u2: [
+    { id: 'u2-1', name: 'Book Owl', description: 'Wise owl loves reading', rarity: 'common', image: '🦉' },
+    { id: 'u2-2', name: 'Star Unicorn', description: 'Legendary star unicorn', rarity: 'legendary', image: '🦄' },
+  ],
+  u3: [
+    { id: 'u3-1', name: 'Science Rabbit', description: 'Curious rabbit experiments', rarity: 'rare', image: '🐰' },
+  ],
+  u4: [{ id: 'u4-1', name: 'Music Dragon', description: 'Musical dragon sings', rarity: 'epic', image: '🐉' }],
+  u5: [{ id: 'u5-1', name: 'Art Panda', description: 'Creative panda paints', rarity: 'epic', image: '🐼' }],
+};
+
+const caseRewardConfig: Record<CaseType, {
+  rewardCount: { min: number; max: number };
+  rewardChances: Record<RewardType, number>;
+  coinRange: { min: number; max: number };
+  xpRange: { min: number; max: number };
+}> = {
+  basic: {
+    rewardCount: { min: 1, max: 1 },
+    rewardChances: { collectible: 50, coins: 30, xp: 20 },
+    coinRange: { min: 20, max: 60 },
+    xpRange: { min: 10, max: 25 },
+  },
+  premium: {
+    rewardCount: { min: 1, max: 3 },
+    rewardChances: { collectible: 45, coins: 30, xp: 25 },
+    coinRange: { min: 40, max: 120 },
+    xpRange: { min: 20, max: 60 },
+  },
+  deluxe: {
+    rewardCount: { min: 2, max: 5 },
+    rewardChances: { collectible: 50, coins: 25, xp: 25 },
+    coinRange: { min: 80, max: 250 },
+    xpRange: { min: 40, max: 120 },
+  },
+};
+
+const getRandomInt = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
+
+const pickRewardType = (caseType: CaseType): RewardType => {
+  const roll = Math.random() * 100;
+  const chances = caseRewardConfig[caseType].rewardChances;
+
+  if (roll < chances.collectible) return 'collectible';
+  if (roll < chances.collectible + chances.coins) return 'coins';
+  return 'xp';
+};
+
+const pickRarity = (): Rarity => {
+  const roll = Math.random();
+  if (roll < 0.5) return 'common';
+  if (roll < 0.75) return 'rare';
+  if (roll < 0.9) return 'epic';
+  return 'legendary';
+};
+
 export const useAppStore = create<AppState>((set, get) => ({
   // Auth
   isAuthenticated: false,
@@ -100,6 +171,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     id: 'u1',
     username: 'StudentPro',
     avatar: '🎮',
+    bio: 'Building better study habits every day 📚',
     level: 12,
     xp: 2450,
     coins: 1250,
@@ -110,11 +182,14 @@ export const useAppStore = create<AppState>((set, get) => ({
   completedChallenges: [],
   posts: mockPosts,
   stories: mockStories,
-  collectibles: mockCollectibles,
+  collectibles: [],
   caseOpening: false,
-  lastOpenResult: null,
+  lastOpenRewards: [],
   groups: mockGroups,
   selectedGroup: null,
+  communityUsers: mockCommunityUsers,
+  selectedUser: null,
+  userCollectibleShowcase: { ...mockCollectibleShowcase, u1: [] },
   currentPage: 'login',
 
   setAuthView: (view) => set({ authView: view }),
@@ -146,28 +221,103 @@ export const useAppStore = create<AppState>((set, get) => ({
     ),
   })),
   
-  openCase: () => {
-    const random = Math.random();
-    let rarity: Rarity;
-    
-    if (random < 0.5) rarity = 'common';
-    else if (random < 0.75) rarity = 'rare';
-    else if (random < 0.9) rarity = 'epic';
-    else rarity = 'legendary';
-    
-    const availableCollectibles = get().collectibles.filter(c => c.rarity === rarity);
-    const result = availableCollectibles[Math.floor(Math.random() * availableCollectibles.length)] || availableCollectibles[0];
-    
-    return { ...result, obtainedAt: new Date() };
+  openCase: (caseType, casePrice) => {
+    const currentCoins = get().user.coins;
+    if (currentCoins < casePrice) {
+      return null;
+    }
+
+    const config = caseRewardConfig[caseType];
+    const rewardsCount = getRandomInt(config.rewardCount.min, config.rewardCount.max);
+    const rewards: CaseReward[] = [];
+    const wonCollectibles: Collectible[] = [];
+    let wonCoins = 0;
+    let wonXp = 0;
+
+    for (let i = 0; i < rewardsCount; i++) {
+      const rewardType = pickRewardType(caseType);
+      const rewardId = `${Date.now()}-${i}-${Math.floor(Math.random() * 100000)}`;
+
+      if (rewardType === 'collectible') {
+        const rarity = pickRarity();
+        const pool = mockCollectibles.filter((item) => item.rarity === rarity);
+        const base = pool[Math.floor(Math.random() * pool.length)] || pool[0];
+        const collectible: Collectible = {
+          ...base,
+          id: `${base.id}-${rewardId}`,
+          obtainedAt: new Date(),
+        };
+        wonCollectibles.push(collectible);
+        rewards.push({
+          id: rewardId,
+          type: 'collectible',
+          collectible,
+          rarity: collectible.rarity,
+        });
+      } else if (rewardType === 'coins') {
+        const amount = getRandomInt(config.coinRange.min, config.coinRange.max);
+        wonCoins += amount;
+        rewards.push({
+          id: rewardId,
+          type: 'coins',
+          amount,
+        });
+      } else {
+        const amount = getRandomInt(config.xpRange.min, config.xpRange.max);
+        wonXp += amount;
+        rewards.push({
+          id: rewardId,
+          type: 'xp',
+          amount,
+        });
+      }
+    }
+
+    set((state) => ({
+      user: {
+        ...state.user,
+        coins: state.user.coins - casePrice + wonCoins,
+        xp: state.user.xp + wonXp,
+      },
+      collectibles: [...state.collectibles, ...wonCollectibles],
+      userCollectibleShowcase: {
+        ...state.userCollectibleShowcase,
+        [state.user.id]: [...(state.userCollectibleShowcase[state.user.id] || []), ...wonCollectibles],
+      },
+      lastOpenRewards: rewards,
+    }));
+
+    return rewards;
   },
   
   setCaseOpening: (opening) => set({ caseOpening: opening }),
   
-  setLastOpenResult: (result) => set({ lastOpenResult: result }),
+  setLastOpenRewards: (rewards) => set({ lastOpenRewards: rewards }),
   
-  addCollectible: (collectible) => set((state) => ({ collectibles: [...state.collectibles, collectible] })),
+  addCollectible: (collectible) => set((state) => ({
+    collectibles: [...state.collectibles, collectible],
+    userCollectibleShowcase: {
+      ...state.userCollectibleShowcase,
+      [state.user.id]: [...(state.userCollectibleShowcase[state.user.id] || []), collectible],
+    },
+  })),
   
   selectGroup: (group) => set({ selectedGroup: group }),
+
+  openUserProfile: (userId) => set((state) => {
+    const selected = state.communityUsers.find((u) => u.id === userId) || null;
+    return { selectedUser: selected, currentPage: 'userProfile' };
+  }),
+
+  openEditProfile: () => set({ currentPage: 'editProfile' }),
+
+  updateCurrentUserProfile: ({ username, bio, avatar }) => set((state) => ({
+    user: { ...state.user, username, bio, avatar },
+    communityUsers: state.communityUsers.map((u) => (u.id === state.user.id ? { ...u, username, bio, avatar } : u)),
+    posts: state.posts.map((p) =>
+      p.userId === state.user.id ? { ...p, username, userAvatar: avatar } : p
+    ),
+  })),
   
   addCoins: (amount) => set((state) => ({ user: { ...state.user, coins: state.user.coins + amount } })),
   

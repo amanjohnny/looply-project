@@ -1,4 +1,6 @@
 export type Rarity = 'common' | 'rare' | 'epic' | 'legendary';
+export type CaseType = 'basic' | 'premium' | 'deluxe';
+export type RewardType = 'collectible' | 'coins' | 'xp';
 
 export interface Collectible {
   id: string;
@@ -7,6 +9,14 @@ export interface Collectible {
   rarity: Rarity;
   image: string;
   obtainedAt?: Date;
+}
+
+export interface CaseReward {
+  id: string;
+  type: RewardType;
+  amount?: number;
+  collectible?: Collectible;
+  rarity?: Rarity;
 }
 
 export interface Challenge {
@@ -38,6 +48,7 @@ export interface User {
   id: string;
   username: string;
   avatar: string;
+  bio: string;
   level: number;
   xp: number;
   coins: number;
