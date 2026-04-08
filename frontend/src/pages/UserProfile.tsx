@@ -3,7 +3,7 @@ import { useAppStore } from '../store/useAppStore';
 import { ArrowLeft, Award } from 'lucide-react';
 
 export default function UserProfile() {
-  const { selectedUser, posts, collectibles, userCollectibleShowcase, user, setCurrentPage } = useAppStore();
+  const { selectedUser, posts, stories, collectibles, userCollectibleShowcase, user, setCurrentPage } = useAppStore();
 
   const profilePosts = useMemo(() => {
     if (!selectedUser) return [];
@@ -15,6 +15,11 @@ export default function UserProfile() {
     if (selectedUser.id === user.id) return collectibles;
     return userCollectibleShowcase[selectedUser.id] || [];
   }, [selectedUser, user.id, collectibles, userCollectibleShowcase]);
+
+  const profileStories = useMemo(() => {
+    if (!selectedUser) return [];
+    return stories.filter((story) => story.userId === selectedUser.id);
+  }, [stories, selectedUser]);
 
   if (!selectedUser) {
     return (
@@ -50,7 +55,7 @@ export default function UserProfile() {
               {selectedUser.avatar}
             </div>
             <div>
-              <h2 className="text-xl font-bold text-gray-900">{selectedUser.username}</h2>
+              <h2 className="text-xl font-bold text-gray-900">{selectedUser.displayName}</h2>
               <p className="text-sm text-gray-500 mt-1">{selectedUser.bio}</p>
             </div>
           </div>
@@ -72,6 +77,26 @@ export default function UserProfile() {
         </div>
 
         <div className="bg-white rounded-3xl p-5 shadow-card">
+          <h3 className="text-lg font-semibold text-gray-900 mb-3">Stories</h3>
+          {profileStories.length === 0 ? (
+            <p className="text-sm text-gray-500">No stories yet.</p>
+          ) : (
+            <div className="flex gap-3 overflow-x-auto hide-scrollbar pb-1">
+              {profileStories.map((story) => (
+                <div key={story.id} className="text-center flex-shrink-0">
+                  <div className={`w-14 h-14 rounded-full p-0.5 ${story.hasViewed ? 'bg-gray-200' : 'story-ring'}`}>
+                    <div className="w-full h-full rounded-full bg-white border border-white flex items-center justify-center text-xl">
+                      {story.avatar}
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-gray-500 mt-1 truncate w-14">{story.username}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="bg-white rounded-3xl p-5 shadow-card">
           <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2 mb-3">
             <Award className="text-yellow-500" size={18} />
             Collectible Preview
@@ -81,7 +106,18 @@ export default function UserProfile() {
           ) : (
             <div className="grid grid-cols-4 gap-2">
               {profileCollectibles.slice(0, 8).map((item) => (
-                <div key={item.id} className="aspect-square rounded-xl bg-gray-50 border border-gray-200 flex items-center justify-center text-2xl">
+                <div
+                  key={item.id}
+                  className={`aspect-square rounded-xl border flex items-center justify-center text-2xl ${
+                    item.rarity === 'legendary'
+                      ? 'border-yellow-300 bg-yellow-50/90 shadow-[0_0_24px_rgba(251,191,36,0.28)]'
+                      : item.rarity === 'epic'
+                      ? 'border-purple-200 bg-purple-50/80 shadow-[0_0_20px_rgba(168,85,247,0.22)]'
+                      : item.rarity === 'rare'
+                      ? 'border-blue-200 bg-blue-50/80 shadow-[0_0_18px_rgba(96,165,250,0.18)]'
+                      : 'border-gray-200 bg-gray-50'
+                  }`}
+                >
                   {item.image}
                 </div>
               ))}

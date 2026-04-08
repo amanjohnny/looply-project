@@ -6,14 +6,14 @@ export default function EditProfile() {
   const { user, updateCurrentUserProfile, setCurrentPage } = useAppStore();
   const [form, setForm] = useState({
     avatar: user.avatar,
-    username: user.username,
+    displayName: user.displayName,
     bio: user.bio,
   });
 
   const handleSave = () => {
     updateCurrentUserProfile({
       avatar: form.avatar || '🙂',
-      username: form.username.trim() || user.username,
+      displayName: form.displayName.trim() || user.displayName,
       bio: form.bio.trim(),
     });
     setCurrentPage('profile');
@@ -48,11 +48,21 @@ export default function EditProfile() {
           </div>
 
           <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Username</label>
+            <input
+              type="text"
+              value={`@${user.username}`}
+              disabled
+              className="input-field bg-gray-50 text-gray-400"
+            />
+          </div>
+
+          <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Display Name</label>
             <input
               type="text"
-              value={form.username}
-              onChange={(e) => setForm({ ...form, username: e.target.value })}
+              value={form.displayName}
+              onChange={(e) => setForm({ ...form, displayName: e.target.value })}
               className="input-field"
               placeholder="Your name"
             />

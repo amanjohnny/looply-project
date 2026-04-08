@@ -29,7 +29,7 @@ export default function Profile() {
       {/* Header */}
       <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-gray-100">
         <div className="flex items-center justify-between px-4 py-3">
-          <h1 className="text-xl font-bold text-gray-900">Profile</h1>
+          <h1 className="text-xl font-bold text-gray-900">@{user.username}</h1>
           <button className="p-2 hover:bg-gray-100 rounded-full transition-colors">
             <Settings className="text-gray-600" size={22} />
           </button>
@@ -52,7 +52,7 @@ export default function Profile() {
             
             {/* Info */}
             <div className="flex-1">
-              <h2 className="text-2xl font-bold text-gray-900">{user.username}</h2>
+              <h2 className="text-2xl font-bold text-gray-900">{user.displayName}</h2>
               <div className="flex items-center gap-3 mt-1">
                 <span className="px-3 py-1 rounded-full bg-primary-100 text-primary-600 text-sm font-medium">
                   Level {user.level}

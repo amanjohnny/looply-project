@@ -15,7 +15,7 @@ interface AppState {
   
   // Feed
   posts: UserPost[];
-  stories: { id: string; username: string; avatar: string; hasViewed: boolean }[];
+  stories: { id: string; userId: string; username: string; avatar: string; hasViewed: boolean }[];
   
   // Collectibles
   collectibles: Collectible[];
@@ -47,7 +47,7 @@ interface AppState {
   selectGroup: (group: Group | null) => void;
   openUserProfile: (userId: string) => void;
   openEditProfile: () => void;
-  updateCurrentUserProfile: (payload: { username: string; bio: string; avatar: string }) => void;
+  updateCurrentUserProfile: (payload: { displayName: string; bio: string; avatar: string }) => void;
   addCoins: (amount: number) => void;
   markStoryViewed: (storyId: string) => void;
 }
@@ -82,12 +82,12 @@ const mockPosts: UserPost[] = [
 ];
 
 const mockStories = [
-  { id: 's1', username: 'You', avatar: '🎮', hasViewed: false },
-  { id: 's2', username: 'StudyMaster', avatar: '🎓', hasViewed: true },
-  { id: 's3', username: 'BookWorm99', avatar: '📖', hasViewed: true },
-  { id: 's4', username: 'ScienceGirl', avatar: '🔬', hasViewed: false },
-  { id: 's5', username: 'MusicKid', avatar: '🎵', hasViewed: false },
-  { id: 's6', username: 'ArtisticSoul', avatar: '🎨', hasViewed: true },
+  { id: 's1', userId: 'u1', username: 'You', avatar: '🎮', hasViewed: false },
+  { id: 's2', userId: 'u1', username: 'StudyMaster', avatar: '🎓', hasViewed: true },
+  { id: 's3', userId: 'u2', username: 'BookWorm99', avatar: '📖', hasViewed: true },
+  { id: 's4', userId: 'u3', username: 'ScienceGirl', avatar: '🔬', hasViewed: false },
+  { id: 's5', userId: 'u4', username: 'MusicKid', avatar: '🎵', hasViewed: false },
+  { id: 's6', userId: 'u5', username: 'ArtisticSoul', avatar: '🎨', hasViewed: true },
 ];
 
 const mockGroups: Group[] = [
@@ -98,11 +98,11 @@ const mockGroups: Group[] = [
 ];
 
 const mockCommunityUsers: User[] = [
-  { id: 'u1', username: 'StudentPro', avatar: '🎮', bio: 'Building better study habits every day 📚', level: 12, xp: 2450, coins: 1250, streak: 7, joinedAt: new Date('2024-09-15') },
-  { id: 'u2', username: 'BookWorm99', avatar: '📖', bio: 'Reading challenges and cozy notes.', level: 10, xp: 1920, coins: 980, streak: 5, joinedAt: new Date('2024-08-12') },
-  { id: 'u3', username: 'ScienceGirl', avatar: '🔬', bio: 'Small experiments, big curiosity.', level: 14, xp: 2780, coins: 1330, streak: 9, joinedAt: new Date('2024-07-02') },
-  { id: 'u4', username: 'MusicKid', avatar: '🎵', bio: 'Study beats + piano practice.', level: 9, xp: 1680, coins: 860, streak: 4, joinedAt: new Date('2024-06-23') },
-  { id: 'u5', username: 'ArtisticSoul', avatar: '🎨', bio: 'Sketching ideas between chapters.', level: 11, xp: 2140, coins: 1040, streak: 6, joinedAt: new Date('2024-05-30') },
+  { id: 'u1', displayName: 'Ari Carter', username: 'studentpro', avatar: '🎮', bio: 'Building better study habits every day 📚', level: 12, xp: 2450, coins: 1250, streak: 7, joinedAt: new Date('2024-09-15') },
+  { id: 'u2', displayName: 'Mina Page', username: 'bookworm99', avatar: '📖', bio: 'Reading challenges and cozy notes.', level: 10, xp: 1920, coins: 980, streak: 5, joinedAt: new Date('2024-08-12') },
+  { id: 'u3', displayName: 'Nora Lin', username: 'sciencegirl', avatar: '🔬', bio: 'Small experiments, big curiosity.', level: 14, xp: 2780, coins: 1330, streak: 9, joinedAt: new Date('2024-07-02') },
+  { id: 'u4', displayName: 'Leo Keys', username: 'musickid', avatar: '🎵', bio: 'Study beats + piano practice.', level: 9, xp: 1680, coins: 860, streak: 4, joinedAt: new Date('2024-06-23') },
+  { id: 'u5', displayName: 'Ivy Rae', username: 'artisticsoul', avatar: '🎨', bio: 'Sketching ideas between chapters.', level: 11, xp: 2140, coins: 1040, streak: 6, joinedAt: new Date('2024-05-30') },
 ];
 
 const mockCollectibleShowcase: Record<string, Collectible[]> = {
@@ -169,7 +169,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   
   user: {
     id: 'u1',
-    username: 'StudentPro',
+    displayName: 'Ari Carter',
+    username: 'studentpro',
     avatar: '🎮',
     bio: 'Building better study habits every day 📚',
     level: 12,
@@ -311,11 +312,11 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   openEditProfile: () => set({ currentPage: 'editProfile' }),
 
-  updateCurrentUserProfile: ({ username, bio, avatar }) => set((state) => ({
-    user: { ...state.user, username, bio, avatar },
-    communityUsers: state.communityUsers.map((u) => (u.id === state.user.id ? { ...u, username, bio, avatar } : u)),
+  updateCurrentUserProfile: ({ displayName, bio, avatar }) => set((state) => ({
+    user: { ...state.user, displayName, bio, avatar },
+    communityUsers: state.communityUsers.map((u) => (u.id === state.user.id ? { ...u, displayName, bio, avatar } : u)),
     posts: state.posts.map((p) =>
-      p.userId === state.user.id ? { ...p, username, userAvatar: avatar } : p
+      p.userId === state.user.id ? { ...p, username: displayName, userAvatar: avatar } : p
     ),
   })),
   
