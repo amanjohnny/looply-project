@@ -1,6 +1,6 @@
 import { useAppStore } from '../store/useAppStore';
 import type { Challenge } from '../types';
-import { Star, Zap, Trophy, CheckCircle, Lock } from 'lucide-react';
+import { Star, Zap, Trophy } from 'lucide-react';
 
 interface DashboardProps {
   onNavigate: (page: string) => void;
@@ -22,7 +22,7 @@ const categoryIcons: Record<string, string> = {
 };
 
 export default function Dashboard({ onNavigate }: DashboardProps) {
-  const { challenges, completeChallenge, user, setLastSpinResult } = useAppStore();
+  const { challenges, completeChallenge, user } = useAppStore();
   const activeChallenges = challenges.filter(c => !c.completed);
   const completedCount = challenges.filter(c => c.completed).length;
 

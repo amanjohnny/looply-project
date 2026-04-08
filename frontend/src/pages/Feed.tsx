@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
-import { Heart, MessageCircle, Send, Bookmark, MoreHorizontal, Award, Plus, ChevronRight } from 'lucide-react';
+import { Heart, MessageCircle, Send, Bookmark, MoreHorizontal, Award, Plus } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function Feed() {
-  const { posts, stories, user, likePost, markStoryViewed, setCurrentPage } = useAppStore();
+  const { posts, stories, likePost, markStoryViewed, setCurrentPage, openUserProfile } = useAppStore();
   const [savedPosts, setSavedPosts] = useState<string[]>([]);
 
   const formatTime = (date: Date) => {
@@ -35,7 +35,7 @@ export default function Feed() {
             <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-pink-500 rounded-xl flex items-center justify-center shadow-glow-pink">
               <span className="text-white text-lg">✨</span>
             </div>
-            <span className="text-xl font-bold gradient-text">QuestUp</span>
+            <span className="text-xl font-bold gradient-text">Looply</span>
           </div>
           <div className="flex items-center gap-3">
             <button onClick={() => setCurrentPage('cases')} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
@@ -86,7 +86,10 @@ export default function Feed() {
             >
               {/* Post Header */}
               <div className="flex items-center justify-between px-4 py-3">
-                <div className="flex items-center gap-3">
+                <button
+                  onClick={() => openUserProfile(post.userId)}
+                  className="flex items-center gap-3 text-left"
+                >
                   <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-200 to-pink-200 flex items-center justify-center text-xl">
                     {post.userAvatar}
                   </div>
@@ -94,7 +97,7 @@ export default function Feed() {
                     <p className="font-semibold text-sm text-gray-900">{post.username}</p>
                     <p className="text-xs text-gray-400">{formatTime(post.timestamp)}</p>
                   </div>
-                </div>
+                </button>
                 <button className="p-2 hover:bg-gray-100 rounded-full transition-colors">
                   <MoreHorizontal className="text-gray-400" size={20} />
                 </button>
