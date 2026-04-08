@@ -25,6 +25,9 @@ interface AppState {
   // Groups
   groups: Group[];
   selectedGroup: Group | null;
+  communityUsers: User[];
+  selectedUser: User | null;
+  userCollectibleShowcase: Record<string, Collectible[]>;
   
   // Navigation
   currentPage: string;
@@ -42,6 +45,9 @@ interface AppState {
   setLastOpenRewards: (rewards: CaseReward[]) => void;
   addCollectible: (collectible: Collectible) => void;
   selectGroup: (group: Group | null) => void;
+  openUserProfile: (userId: string) => void;
+  openEditProfile: () => void;
+  updateCurrentUserProfile: (payload: { username: string; bio: string; avatar: string }) => void;
   addCoins: (amount: number) => void;
   markStoryViewed: (storyId: string) => void;
 }
@@ -90,6 +96,26 @@ const mockGroups: Group[] = [
   { id: '3', name: 'Book Lovers', description: 'Reading and sharing great books', avatar: '📖', memberCount: 234, challengesCreated: 67, ownerId: 'u3' },
   { id: '4', name: 'Science Club', description: 'Explore the wonders of science', avatar: '🔬', memberCount: 178, challengesCreated: 54, ownerId: 'u4' },
 ];
+
+const mockCommunityUsers: User[] = [
+  { id: 'u1', username: 'StudentPro', avatar: '🎮', bio: 'Building better study habits every day 📚', level: 12, xp: 2450, coins: 1250, streak: 7, joinedAt: new Date('2024-09-15') },
+  { id: 'u2', username: 'BookWorm99', avatar: '📖', bio: 'Reading challenges and cozy notes.', level: 10, xp: 1920, coins: 980, streak: 5, joinedAt: new Date('2024-08-12') },
+  { id: 'u3', username: 'ScienceGirl', avatar: '🔬', bio: 'Small experiments, big curiosity.', level: 14, xp: 2780, coins: 1330, streak: 9, joinedAt: new Date('2024-07-02') },
+  { id: 'u4', username: 'MusicKid', avatar: '🎵', bio: 'Study beats + piano practice.', level: 9, xp: 1680, coins: 860, streak: 4, joinedAt: new Date('2024-06-23') },
+  { id: 'u5', username: 'ArtisticSoul', avatar: '🎨', bio: 'Sketching ideas between chapters.', level: 11, xp: 2140, coins: 1040, streak: 6, joinedAt: new Date('2024-05-30') },
+];
+
+const mockCollectibleShowcase: Record<string, Collectible[]> = {
+  u2: [
+    { id: 'u2-1', name: 'Book Owl', description: 'Wise owl loves reading', rarity: 'common', image: '🦉' },
+    { id: 'u2-2', name: 'Star Unicorn', description: 'Legendary star unicorn', rarity: 'legendary', image: '🦄' },
+  ],
+  u3: [
+    { id: 'u3-1', name: 'Science Rabbit', description: 'Curious rabbit experiments', rarity: 'rare', image: '🐰' },
+  ],
+  u4: [{ id: 'u4-1', name: 'Music Dragon', description: 'Musical dragon sings', rarity: 'epic', image: '🐉' }],
+  u5: [{ id: 'u5-1', name: 'Art Panda', description: 'Creative panda paints', rarity: 'epic', image: '🐼' }],
+};
 
 const caseRewardConfig: Record<CaseType, {
   rewardCount: { min: number; max: number };
@@ -145,6 +171,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     id: 'u1',
     username: 'StudentPro',
     avatar: '🎮',
+    bio: 'Building better study habits every day 📚',
     level: 12,
     xp: 2450,
     coins: 1250,
@@ -160,6 +187,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   lastOpenRewards: [],
   groups: mockGroups,
   selectedGroup: null,
+  communityUsers: mockCommunityUsers,
+  selectedUser: null,
+  userCollectibleShowcase: { ...mockCollectibleShowcase, u1: [] },
   currentPage: 'login',
 
   setAuthView: (view) => set({ authView: view }),
@@ -250,6 +280,10 @@ export const useAppStore = create<AppState>((set, get) => ({
         xp: state.user.xp + wonXp,
       },
       collectibles: [...state.collectibles, ...wonCollectibles],
+      userCollectibleShowcase: {
+        ...state.userCollectibleShowcase,
+        [state.user.id]: [...(state.userCollectibleShowcase[state.user.id] || []), ...wonCollectibles],
+      },
       lastOpenRewards: rewards,
     }));
 
@@ -260,9 +294,30 @@ export const useAppStore = create<AppState>((set, get) => ({
   
   setLastOpenRewards: (rewards) => set({ lastOpenRewards: rewards }),
   
-  addCollectible: (collectible) => set((state) => ({ collectibles: [...state.collectibles, collectible] })),
+  addCollectible: (collectible) => set((state) => ({
+    collectibles: [...state.collectibles, collectible],
+    userCollectibleShowcase: {
+      ...state.userCollectibleShowcase,
+      [state.user.id]: [...(state.userCollectibleShowcase[state.user.id] || []), collectible],
+    },
+  })),
   
   selectGroup: (group) => set({ selectedGroup: group }),
+
+  openUserProfile: (userId) => set((state) => {
+    const selected = state.communityUsers.find((u) => u.id === userId) || null;
+    return { selectedUser: selected, currentPage: 'userProfile' };
+  }),
+
+  openEditProfile: () => set({ currentPage: 'editProfile' }),
+
+  updateCurrentUserProfile: ({ username, bio, avatar }) => set((state) => ({
+    user: { ...state.user, username, bio, avatar },
+    communityUsers: state.communityUsers.map((u) => (u.id === state.user.id ? { ...u, username, bio, avatar } : u)),
+    posts: state.posts.map((p) =>
+      p.userId === state.user.id ? { ...p, username, userAvatar: avatar } : p
+    ),
+  })),
   
   addCoins: (amount) => set((state) => ({ user: { ...state.user, coins: state.user.coins + amount } })),
   

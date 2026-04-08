@@ -48,6 +48,7 @@ export interface User {
   id: string;
   username: string;
   avatar: string;
+  bio: string;
   level: number;
   xp: number;
   coins: number;

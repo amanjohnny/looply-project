@@ -8,6 +8,8 @@ import Cases from './pages/Cases';
 import Profile from './pages/Profile';
 import Challenges from './pages/Challenges';
 import Groups from './pages/Groups';
+import UserProfile from './pages/UserProfile';
+import EditProfile from './pages/EditProfile';
 
 // Icons
 import { Home, Box, User, List, Users } from 'lucide-react';
@@ -46,6 +48,10 @@ function App() {
         return <Groups />;
       case 'profile':
         return <Profile />;
+      case 'userProfile':
+        return <UserProfile />;
+      case 'editProfile':
+        return <EditProfile />;
       default:
         return <Feed />;
     }

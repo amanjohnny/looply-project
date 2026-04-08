@@ -4,7 +4,7 @@ import { Heart, MessageCircle, Send, Bookmark, MoreHorizontal, Award, Plus } fro
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function Feed() {
-  const { posts, stories, likePost, markStoryViewed, setCurrentPage } = useAppStore();
+  const { posts, stories, likePost, markStoryViewed, setCurrentPage, openUserProfile } = useAppStore();
   const [savedPosts, setSavedPosts] = useState<string[]>([]);
 
   const formatTime = (date: Date) => {
@@ -86,7 +86,10 @@ export default function Feed() {
             >
               {/* Post Header */}
               <div className="flex items-center justify-between px-4 py-3">
-                <div className="flex items-center gap-3">
+                <button
+                  onClick={() => openUserProfile(post.userId)}
+                  className="flex items-center gap-3 text-left"
+                >
                   <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-200 to-pink-200 flex items-center justify-center text-xl">
                     {post.userAvatar}
                   </div>
@@ -94,7 +97,7 @@ export default function Feed() {
                     <p className="font-semibold text-sm text-gray-900">{post.username}</p>
                     <p className="text-xs text-gray-400">{formatTime(post.timestamp)}</p>
                   </div>
-                </div>
+                </button>
                 <button className="p-2 hover:bg-gray-100 rounded-full transition-colors">
                   <MoreHorizontal className="text-gray-400" size={20} />
                 </button>

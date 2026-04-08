@@ -11,7 +11,7 @@ const rarityConfig: Record<Rarity, { color: string; bg: string; border: string; 
 };
 
 export default function Profile() {
-  const { user, challenges, collectibles, setCurrentPage } = useAppStore();
+  const { user, challenges, collectibles, setCurrentPage, openEditProfile } = useAppStore();
   
   const completedChallenges = challenges.filter(c => c.completed).length;
   const totalChallenges = challenges.length;
@@ -65,7 +65,7 @@ export default function Profile() {
             </div>
             
             {/* Edit button */}
-            <button className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+            <button onClick={openEditProfile} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
               <Edit className="text-gray-400" size={20} />
             </button>
           </div>
