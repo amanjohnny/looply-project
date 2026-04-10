@@ -3,11 +3,19 @@ import { useAppStore } from '../store/useAppStore';
 import { Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react';
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+type AuthField = 'email' | 'password' | 'username' | 'confirmPassword';
 
 export default function Auth() {
   const { authView, setAuthView, login } = useAppStore();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [submitAttempted, setSubmitAttempted] = useState(false);
+  const [touched, setTouched] = useState<Record<AuthField, boolean>>({
+    email: false,
+    password: false,
+    username: false,
+    confirmPassword: false,
+  });
 
   const [formData, setFormData] = useState({
     email: '',
@@ -25,40 +33,37 @@ export default function Auth() {
     };
 
     if (authView === 'register') {
-      if (formData.username.trim().length < 3) {
-        next.username = 'Username must be at least 3 characters.';
-      }
-      if (!emailRegex.test(formData.email.trim())) {
-        next.email = 'Enter a valid email.';
-      }
-      if (formData.password.length < 6) {
-        next.password = 'Password must be at least 6 characters.';
-      }
-      if (formData.confirmPassword !== formData.password) {
-        next.confirmPassword = 'Passwords do not match.';
-      }
+      if (formData.username.trim().length < 3) next.username = 'Username must be at least 3 characters.';
+      if (!emailRegex.test(formData.email.trim())) next.email = 'Enter a valid email.';
+      if (formData.password.length < 6) next.password = 'Password must be at least 6 characters.';
+      if (formData.confirmPassword !== formData.password) next.confirmPassword = 'Passwords do not match.';
       return next;
     }
 
-    if (!formData.email.trim()) {
-      next.email = 'Email or phone is required.';
-    }
-    if (formData.password.length < 6) {
-      next.password = 'Password must be at least 6 characters.';
-    }
+    if (!formData.email.trim()) next.email = 'Email or phone is required.';
+    if (formData.password.length < 6) next.password = 'Password must be at least 6 characters.';
 
     return next;
   }, [authView, formData]);
 
   const hasErrors = Boolean(errors.email || errors.password || errors.username || errors.confirmPassword);
 
+  const showError = (field: AuthField) => Boolean(errors[field]) && (touched[field] || submitAttempted);
+
+  const helperText = (field: AuthField, neutral: string) => {
+    if (showError(field)) {
+      return <p className="mt-1 text-xs text-red-500">{errors[field]}</p>;
+    }
+    return <p className="mt-1 text-xs text-gray-400">{neutral}</p>;
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmitAttempted(true);
 
     if (hasErrors) return;
 
     setIsLoading(true);
-
     setTimeout(() => {
       login();
       setIsLoading(false);
@@ -67,6 +72,10 @@ export default function Auth() {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handleBlur = (field: AuthField) => {
+    setTouched((prev) => ({ ...prev, [field]: true }));
   };
 
   return (
@@ -90,20 +99,10 @@ export default function Auth() {
 
           <div className="rounded-[28px] border border-white/70 bg-white/90 p-5 shadow-[0_16px_48px_rgba(46,20,61,0.10)] backdrop-blur-md sm:p-6">
             <div className="mb-6 grid grid-cols-2 gap-1 rounded-2xl bg-gray-100/90 p-1.5">
-              <button
-                onClick={() => setAuthView('login')}
-                className={`rounded-xl py-2.5 text-sm font-semibold transition-all duration-300 ${
-                  authView === 'login' ? 'bg-white text-gray-900 shadow-soft' : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
+              <button onClick={() => setAuthView('login')} className={`rounded-xl py-2.5 text-sm font-semibold transition-all duration-300 ${authView === 'login' ? 'bg-white text-gray-900 shadow-soft' : 'text-gray-500 hover:text-gray-700'}`}>
                 Sign In
               </button>
-              <button
-                onClick={() => setAuthView('register')}
-                className={`rounded-xl py-2.5 text-sm font-semibold transition-all duration-300 ${
-                  authView === 'register' ? 'bg-white text-gray-900 shadow-soft' : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
+              <button onClick={() => setAuthView('register')} className={`rounded-xl py-2.5 text-sm font-semibold transition-all duration-300 ${authView === 'register' ? 'bg-white text-gray-900 shadow-soft' : 'text-gray-500 hover:text-gray-700'}`}>
                 Sign Up
               </button>
             </div>
@@ -113,108 +112,63 @@ export default function Auth() {
                 <div>
                   <label className="mb-2 block text-sm font-medium text-gray-700">Username</label>
                   <div className="relative">
-                    <input
-                      type="text"
-                      name="username"
-                      value={formData.username}
-                      onChange={handleChange}
-                      placeholder="Choose a username"
-                      className="input-field h-12 rounded-xl !pl-14 !pr-4"
-                    />
+                    <input type="text" name="username" value={formData.username} onChange={handleChange} onBlur={() => handleBlur('username')} placeholder="Choose a username" className="input-field h-12 rounded-xl !pl-14 !pr-4" />
                     <div className="pointer-events-none absolute left-0 top-1/2 flex h-12 w-12 -translate-y-1/2 items-center justify-center text-gray-400">
                       <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                       </svg>
                     </div>
                   </div>
-                  {errors.username && <p className="mt-1 text-xs text-red-500">{errors.username}</p>}
+                  {helperText('username', 'At least 3 characters.')}
                 </div>
               )}
 
               <div>
                 <label className="mb-2 block text-sm font-medium text-gray-700">{authView === 'login' ? 'Email or Phone' : 'Email'}</label>
                 <div className="relative">
-                  <input
-                    type="text"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleChange}
-                    placeholder={authView === 'login' ? 'Enter email or phone number' : 'Enter your email'}
-                    className="input-field h-12 rounded-xl !pl-14 !pr-4"
-                  />
+                  <input type="text" name="email" value={formData.email} onChange={handleChange} onBlur={() => handleBlur('email')} placeholder={authView === 'login' ? 'Enter email or phone number' : 'Enter your email'} className="input-field h-12 rounded-xl !pl-14 !pr-4" />
                   <div className="pointer-events-none absolute left-0 top-1/2 flex h-12 w-12 -translate-y-1/2 items-center justify-center text-gray-400">
                     <Mail size={18} />
                   </div>
                 </div>
-                {errors.email && <p className="mt-1 text-xs text-red-500">{errors.email}</p>}
+                {helperText('email', authView === 'login' ? 'Use your account email or phone.' : 'Use a valid email format.')}
               </div>
 
               <div>
                 <label className="mb-2 block text-sm font-medium text-gray-700">Password</label>
                 <div className="relative">
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    name="password"
-                    value={formData.password}
-                    onChange={handleChange}
-                    placeholder="Enter your password"
-                    className="input-field h-12 rounded-xl !pl-14 !pr-12"
-                  />
+                  <input type={showPassword ? 'text' : 'password'} name="password" value={formData.password} onChange={handleChange} onBlur={() => handleBlur('password')} placeholder="Enter your password" className="input-field h-12 rounded-xl !pl-14 !pr-12" />
                   <div className="pointer-events-none absolute left-0 top-1/2 flex h-12 w-12 -translate-y-1/2 items-center justify-center text-gray-400">
                     <Lock size={18} />
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
-                  >
+                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600">
                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
                 </div>
-                {errors.password && <p className="mt-1 text-xs text-red-500">{errors.password}</p>}
+                {helperText('password', 'Minimum 6 characters.')}
               </div>
 
               {authView === 'register' && (
                 <div>
                   <label className="mb-2 block text-sm font-medium text-gray-700">Confirm Password</label>
                   <div className="relative">
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      name="confirmPassword"
-                      value={formData.confirmPassword}
-                      onChange={handleChange}
-                      placeholder="Confirm your password"
-                      className="input-field h-12 rounded-xl !pl-14 !pr-4"
-                    />
+                    <input type={showPassword ? 'text' : 'password'} name="confirmPassword" value={formData.confirmPassword} onChange={handleChange} onBlur={() => handleBlur('confirmPassword')} placeholder="Confirm your password" className="input-field h-12 rounded-xl !pl-14 !pr-4" />
                     <div className="pointer-events-none absolute left-0 top-1/2 flex h-12 w-12 -translate-y-1/2 items-center justify-center text-gray-400">
                       <Lock size={18} />
                     </div>
                   </div>
-                  {errors.confirmPassword && <p className="mt-1 text-xs text-red-500">{errors.confirmPassword}</p>}
+                  {helperText('confirmPassword', 'Must match your password.')}
                 </div>
               )}
 
               {authView === 'login' && (
                 <div className="flex justify-end">
-                  <button type="button" className="text-sm font-medium text-primary-600 hover:text-primary-700">
-                    Forgot password?
-                  </button>
+                  <button type="button" className="text-sm font-medium text-primary-600 hover:text-primary-700">Forgot password?</button>
                 </div>
               )}
 
-              <button
-                type="submit"
-                disabled={isLoading || hasErrors}
-                className="mt-1 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary-500 to-pink-500 py-3 text-sm font-semibold text-white shadow-glow-pink transition hover:brightness-105 disabled:opacity-70"
-              >
-                {isLoading ? (
-                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                ) : (
-                  <>
-                    {authView === 'login' ? 'Sign In' : 'Create Account'}
-                    <ArrowRight size={18} />
-                  </>
-                )}
+              <button type="submit" disabled={isLoading || hasErrors} className="mt-1 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary-500 to-pink-500 py-3 text-sm font-semibold text-white shadow-glow-pink transition hover:brightness-105 disabled:opacity-70">
+                {isLoading ? <div className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" /> : <>{authView === 'login' ? 'Sign In' : 'Create Account'}<ArrowRight size={18} /></>}
               </button>
             </form>
 

@@ -36,6 +36,7 @@ interface AppState {
   stories: { id: string; userId: string; username: string; avatar: string; hasViewed: boolean }[];
   likedPostIds: string[];
   commentsByPost: Record<string, PostComment[]>;
+  activeCommentPostId: string | null;
 
   // Collectibles
   collectibles: Collectible[];
@@ -61,6 +62,8 @@ interface AppState {
   addPost: (post: UserPost) => void;
   togglePostLike: (postId: string) => void;
   addComment: (postId: string, content: string) => void;
+  openComments: (postId: string) => void;
+  closeComments: () => void;
   openCase: (caseType: CaseType, casePrice: number) => CaseReward[] | null;
   setCaseOpening: (opening: boolean) => void;
   setLastOpenRewards: (rewards: CaseReward[]) => void;
@@ -221,6 +224,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   stories: mockStories,
   likedPostIds: [],
   commentsByPost: mockCommentsByPost,
+  activeCommentPostId: null,
   collectibles: [],
   caseOpening: false,
   lastOpenRewards: [],
@@ -289,6 +293,10 @@ export const useAppStore = create<AppState>((set, get) => ({
       };
     });
   },
+
+  openComments: (postId) => set({ activeCommentPostId: postId, currentPage: 'comments' }),
+
+  closeComments: () => set({ activeCommentPostId: null, currentPage: 'feed' }),
 
   openCase: (caseType, casePrice) => {
     const currentCoins = get().user.coins;

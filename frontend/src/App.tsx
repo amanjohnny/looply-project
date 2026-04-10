@@ -11,6 +11,7 @@ import Groups from './pages/Groups';
 import UserProfile from './pages/UserProfile';
 import EditProfile from './pages/EditProfile';
 import Settings from './pages/Settings';
+import Comments from './pages/Comments';
 
 // Icons
 import { Home, Box, User, List, Users } from 'lucide-react';
@@ -55,10 +56,14 @@ function App() {
         return <EditProfile />;
       case 'settings':
         return <Settings />;
+      case 'comments':
+        return <Comments />;
       default:
         return <Feed />;
     }
   };
+
+  const hideBottomNav = ['editProfile', 'userProfile', 'settings', 'comments'].includes(currentPage);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -78,7 +83,7 @@ function App() {
       </AnimatePresence>
 
       {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-xl border-t border-gray-100 z-50 safe-area-bottom">
+      {!hideBottomNav && <nav className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-xl border-t border-gray-100 z-50 safe-area-bottom">
         <div className="flex justify-around items-center max-w-md mx-auto px-2 py-2">
           {navItems.map((item) => {
             const Icon = item.icon;
@@ -111,7 +116,7 @@ function App() {
             );
           })}
         </div>
-      </nav>
+      </nav>}
     </div>
   );
 }

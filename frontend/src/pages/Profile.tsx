@@ -55,8 +55,8 @@ export default function Profile() {
             </div>
 
             <div className="flex-1">
-              <h2 className="text-2xl font-bold text-gray-900">{user.displayName}</h2>
-              <p className="text-sm text-gray-500 mt-1">{user.bio}</p>
+              <h2 className="text-2xl font-bold text-gray-900 break-words [overflow-wrap:anywhere]">{user.displayName}</h2>
+              <p className="text-sm text-gray-500 mt-1 break-words [overflow-wrap:anywhere]">{user.bio}</p>
               <div className="flex items-center gap-3 mt-2">
                 <span className="px-3 py-1 rounded-full bg-primary-100 text-primary-600 text-sm font-medium">
                   Level {user.level}
