@@ -55,6 +55,9 @@ export default function EditProfile() {
               disabled
               className="input-field bg-gray-50 text-gray-400"
             />
+            <p className="text-xs text-gray-400 mt-1">
+              Username is unique and can’t be changed in this version.
+            </p>
           </div>
 
           <div>
