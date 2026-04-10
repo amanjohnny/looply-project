@@ -2,10 +2,10 @@ import { useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import type { Group } from '../types';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Users, Plus, Crown, Award, MessageCircle, UserPlus, X } from 'lucide-react';
+import { Users, Plus, Crown, Award, UserPlus, X } from 'lucide-react';
 
 export default function Groups() {
-  const { groups, selectGroup, selectedGroup, user, setCurrentPage } = useAppStore();
+  const { groups, selectGroup, selectedGroup, user } = useAppStore();
   const [showCreateModal, setShowCreateModal] = useState(false);
 
   const handleGroupClick = (group: Group) => {
