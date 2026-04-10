@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react';
+
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function Auth() {
   const { authView, setAuthView, login } = useAppStore();
@@ -14,11 +16,49 @@ export default function Auth() {
     confirmPassword: '',
   });
 
+  const errors = useMemo(() => {
+    const next = {
+      email: '',
+      password: '',
+      username: '',
+      confirmPassword: '',
+    };
+
+    if (authView === 'register') {
+      if (formData.username.trim().length < 3) {
+        next.username = 'Username must be at least 3 characters.';
+      }
+      if (!emailRegex.test(formData.email.trim())) {
+        next.email = 'Enter a valid email.';
+      }
+      if (formData.password.length < 6) {
+        next.password = 'Password must be at least 6 characters.';
+      }
+      if (formData.confirmPassword !== formData.password) {
+        next.confirmPassword = 'Passwords do not match.';
+      }
+      return next;
+    }
+
+    if (!formData.email.trim()) {
+      next.email = 'Email or phone is required.';
+    }
+    if (formData.password.length < 6) {
+      next.password = 'Password must be at least 6 characters.';
+    }
+
+    return next;
+  }, [authView, formData]);
+
+  const hasErrors = Boolean(errors.email || errors.password || errors.username || errors.confirmPassword);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (hasErrors) return;
+
     setIsLoading(true);
 
-    // Simulate API call
     setTimeout(() => {
       login();
       setIsLoading(false);
@@ -31,7 +71,6 @@ export default function Auth() {
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-[#fdfbff] px-4 py-10 sm:py-12">
-      {/* Soft ambient background */}
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute -top-28 -left-20 h-72 w-72 rounded-full bg-gradient-to-br from-primary-100/80 to-transparent blur-3xl" />
         <div className="absolute top-1/4 -right-24 h-72 w-72 rounded-full bg-gradient-to-br from-purple-100/70 to-transparent blur-3xl" />
@@ -41,7 +80,6 @@ export default function Auth() {
 
       <div className="relative z-10 mx-auto flex min-h-[calc(100vh-5rem)] w-full max-w-md items-center justify-center">
         <div className="w-full">
-          {/* Brand block */}
           <div className="mb-8 text-center sm:mb-10">
             <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-3xl border border-white/70 bg-gradient-to-b from-white/90 to-white/60 shadow-[0_10px_30px_rgba(177,133,183,0.15)] backdrop-blur-sm sm:h-24 sm:w-24">
               <div className="h-12 w-12 rounded-2xl border border-gray-200/80 bg-gradient-to-br from-gray-50 via-white to-gray-100/90 sm:h-14 sm:w-14" />
@@ -50,16 +88,12 @@ export default function Auth() {
             <p className="mt-2 text-sm text-gray-500">Complete challenges, earn rewards with friends.</p>
           </div>
 
-          {/* Auth card */}
           <div className="rounded-[28px] border border-white/70 bg-white/90 p-5 shadow-[0_16px_48px_rgba(46,20,61,0.10)] backdrop-blur-md sm:p-6">
-            {/* Tab switcher */}
             <div className="mb-6 grid grid-cols-2 gap-1 rounded-2xl bg-gray-100/90 p-1.5">
               <button
                 onClick={() => setAuthView('login')}
                 className={`rounded-xl py-2.5 text-sm font-semibold transition-all duration-300 ${
-                  authView === 'login'
-                    ? 'bg-white text-gray-900 shadow-soft'
-                    : 'text-gray-500 hover:text-gray-700'
+                  authView === 'login' ? 'bg-white text-gray-900 shadow-soft' : 'text-gray-500 hover:text-gray-700'
                 }`}
               >
                 Sign In
@@ -67,17 +101,14 @@ export default function Auth() {
               <button
                 onClick={() => setAuthView('register')}
                 className={`rounded-xl py-2.5 text-sm font-semibold transition-all duration-300 ${
-                  authView === 'register'
-                    ? 'bg-white text-gray-900 shadow-soft'
-                    : 'text-gray-500 hover:text-gray-700'
+                  authView === 'register' ? 'bg-white text-gray-900 shadow-soft' : 'text-gray-500 hover:text-gray-700'
                 }`}
               >
                 Sign Up
               </button>
             </div>
 
-            {/* Form */}
-            <form onSubmit={handleSubmit} className="space-y-[18px]">
+            <form onSubmit={handleSubmit} className="space-y-[18px]" noValidate>
               {authView === 'register' && (
                 <div>
                   <label className="mb-2 block text-sm font-medium text-gray-700">Username</label>
@@ -89,7 +120,6 @@ export default function Auth() {
                       onChange={handleChange}
                       placeholder="Choose a username"
                       className="input-field h-12 rounded-xl !pl-14 !pr-4"
-                      required={authView === 'register'}
                     />
                     <div className="pointer-events-none absolute left-0 top-1/2 flex h-12 w-12 -translate-y-1/2 items-center justify-center text-gray-400">
                       <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -97,13 +127,12 @@ export default function Auth() {
                       </svg>
                     </div>
                   </div>
+                  {errors.username && <p className="mt-1 text-xs text-red-500">{errors.username}</p>}
                 </div>
               )}
 
               <div>
-                <label className="mb-2 block text-sm font-medium text-gray-700">
-                  {authView === 'login' ? 'Email or Phone' : 'Email'}
-                </label>
+                <label className="mb-2 block text-sm font-medium text-gray-700">{authView === 'login' ? 'Email or Phone' : 'Email'}</label>
                 <div className="relative">
                   <input
                     type="text"
@@ -112,12 +141,12 @@ export default function Auth() {
                     onChange={handleChange}
                     placeholder={authView === 'login' ? 'Enter email or phone number' : 'Enter your email'}
                     className="input-field h-12 rounded-xl !pl-14 !pr-4"
-                    required
                   />
                   <div className="pointer-events-none absolute left-0 top-1/2 flex h-12 w-12 -translate-y-1/2 items-center justify-center text-gray-400">
                     <Mail size={18} />
                   </div>
                 </div>
+                {errors.email && <p className="mt-1 text-xs text-red-500">{errors.email}</p>}
               </div>
 
               <div>
@@ -130,7 +159,6 @@ export default function Auth() {
                     onChange={handleChange}
                     placeholder="Enter your password"
                     className="input-field h-12 rounded-xl !pl-14 !pr-12"
-                    required
                   />
                   <div className="pointer-events-none absolute left-0 top-1/2 flex h-12 w-12 -translate-y-1/2 items-center justify-center text-gray-400">
                     <Lock size={18} />
@@ -143,6 +171,7 @@ export default function Auth() {
                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
                 </div>
+                {errors.password && <p className="mt-1 text-xs text-red-500">{errors.password}</p>}
               </div>
 
               {authView === 'register' && (
@@ -156,12 +185,12 @@ export default function Auth() {
                       onChange={handleChange}
                       placeholder="Confirm your password"
                       className="input-field h-12 rounded-xl !pl-14 !pr-4"
-                      required={authView === 'register'}
                     />
                     <div className="pointer-events-none absolute left-0 top-1/2 flex h-12 w-12 -translate-y-1/2 items-center justify-center text-gray-400">
                       <Lock size={18} />
                     </div>
                   </div>
+                  {errors.confirmPassword && <p className="mt-1 text-xs text-red-500">{errors.confirmPassword}</p>}
                 </div>
               )}
 
@@ -175,7 +204,7 @@ export default function Auth() {
 
               <button
                 type="submit"
-                disabled={isLoading}
+                disabled={isLoading || hasErrors}
                 className="mt-1 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary-500 to-pink-500 py-3 text-sm font-semibold text-white shadow-glow-pink transition hover:brightness-105 disabled:opacity-70"
               >
                 {isLoading ? (
@@ -189,14 +218,12 @@ export default function Auth() {
               </button>
             </form>
 
-            {/* Divider */}
             <div className="my-6 flex items-center gap-4">
               <div className="h-px flex-1 bg-gray-200" />
               <span className="text-sm text-gray-400">or</span>
               <div className="h-px flex-1 bg-gray-200" />
             </div>
 
-            {/* Social login */}
             <div className="space-y-3">
               <button className="flex w-full items-center justify-center gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 font-medium text-gray-700 transition-colors hover:bg-gray-100">
                 <svg className="h-5 w-5" viewBox="0 0 24 24">
@@ -210,9 +237,7 @@ export default function Auth() {
             </div>
           </div>
 
-          <p className="mt-6 px-2 text-center text-xs leading-relaxed text-gray-500">
-            By continuing, you agree to our Terms of Service and Privacy Policy
-          </p>
+          <p className="mt-6 px-2 text-center text-xs leading-relaxed text-gray-500">By continuing, you agree to our Terms of Service and Privacy Policy</p>
         </div>
       </div>
     </div>

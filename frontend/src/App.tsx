@@ -10,6 +10,7 @@ import Challenges from './pages/Challenges';
 import Groups from './pages/Groups';
 import UserProfile from './pages/UserProfile';
 import EditProfile from './pages/EditProfile';
+import Settings from './pages/Settings';
 
 // Icons
 import { Home, Box, User, List, Users } from 'lucide-react';
@@ -52,6 +53,8 @@ function App() {
         return <UserProfile />;
       case 'editProfile':
         return <EditProfile />;
+      case 'settings':
+        return <Settings />;
       default:
         return <Feed />;
     }

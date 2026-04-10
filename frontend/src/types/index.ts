@@ -30,6 +30,16 @@ export interface Challenge {
   proofRequired: boolean;
 }
 
+export interface PostComment {
+  id: string;
+  postId: string;
+  userId: string;
+  username: string;
+  userAvatar: string;
+  content: string;
+  timestamp: Date;
+}
+
 export interface UserPost {
   id: string;
   userId: string;

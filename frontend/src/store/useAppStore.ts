@@ -1,37 +1,57 @@
 import { create } from 'zustand';
-import type { User, Challenge, UserPost, Collectible, Group, Rarity, CaseReward, CaseType, RewardType } from '../types';
+import type {
+  User,
+  Challenge,
+  UserPost,
+  Collectible,
+  Group,
+  Rarity,
+  CaseReward,
+  CaseType,
+  RewardType,
+  PostComment,
+} from '../types';
 
 interface AppState {
   // Auth state
   isAuthenticated: boolean;
   authView: 'login' | 'register';
-  
+
   // User state
   user: User;
-  
+
+  // Preferences
+  preferences: {
+    pushNotifications: boolean;
+    privateProfile: boolean;
+    darkMode: boolean;
+  };
+
   // Challenges
   challenges: Challenge[];
   completedChallenges: string[];
-  
+
   // Feed
   posts: UserPost[];
   stories: { id: string; userId: string; username: string; avatar: string; hasViewed: boolean }[];
-  
+  likedPostIds: string[];
+  commentsByPost: Record<string, PostComment[]>;
+
   // Collectibles
   collectibles: Collectible[];
   caseOpening: boolean;
   lastOpenRewards: CaseReward[];
-  
+
   // Groups
   groups: Group[];
   selectedGroup: Group | null;
   communityUsers: User[];
   selectedUser: User | null;
   userCollectibleShowcase: Record<string, Collectible[]>;
-  
+
   // Navigation
   currentPage: string;
-  
+
   // Actions
   setAuthView: (view: 'login' | 'register') => void;
   login: () => void;
@@ -39,7 +59,8 @@ interface AppState {
   setCurrentPage: (page: string) => void;
   completeChallenge: (challengeId: string) => void;
   addPost: (post: UserPost) => void;
-  likePost: (postId: string) => void;
+  togglePostLike: (postId: string) => void;
+  addComment: (postId: string, content: string) => void;
   openCase: (caseType: CaseType, casePrice: number) => CaseReward[] | null;
   setCaseOpening: (opening: boolean) => void;
   setLastOpenRewards: (rewards: CaseReward[]) => void;
@@ -47,12 +68,13 @@ interface AppState {
   selectGroup: (group: Group | null) => void;
   openUserProfile: (userId: string) => void;
   openEditProfile: () => void;
+  openSettings: () => void;
   updateCurrentUserProfile: (payload: { displayName: string; bio: string; avatar: string }) => void;
+  updatePreferences: (payload: Partial<AppState['preferences']>) => void;
   addCoins: (amount: number) => void;
   markStoryViewed: (storyId: string) => void;
 }
 
-// Mock data
 const mockCollectibles: Collectible[] = [
   { id: '1', name: 'Study Cat', description: 'A cute cat studying hard', rarity: 'common', image: '🐱' },
   { id: '2', name: 'Book Owl', description: 'Wise owl loves reading', rarity: 'common', image: '🦉' },
@@ -80,6 +102,16 @@ const mockPosts: UserPost[] = [
   { id: '4', userId: 'u4', username: 'MusicKid', userAvatar: '🎵', challengeId: '5', challengeTitle: 'Practice Instrument', content: 'Practiced my piano for 30 minutes today. Learning a new piece by Chopin! 🎹', likes: 35, comments: 12, timestamp: new Date(Date.now() - 14400000) },
   { id: '5', userId: 'u5', username: 'ArtisticSoul', userAvatar: '🎨', challengeId: '3', challengeTitle: 'Read a Chapter', content: 'Finished reading The Hobbit - what an adventure! Bilbo is such a lovable character. Cant wait to read more!', likes: 56, comments: 15, timestamp: new Date(Date.now() - 18000000) },
 ];
+
+const mockCommentsByPost: Record<string, PostComment[]> = {
+  '1': [
+    { id: 'c1', postId: '1', userId: 'u2', username: 'BookWorm99', userAvatar: '📖', content: 'Great work! Homework wins always feel amazing 🙌', timestamp: new Date(Date.now() - 3400000) },
+    { id: 'c2', postId: '1', userId: 'u3', username: 'ScienceGirl', userAvatar: '🔬', content: 'Proud of your consistency!', timestamp: new Date(Date.now() - 3200000) },
+  ],
+  '2': [
+    { id: 'c3', postId: '2', userId: 'u1', username: 'StudyMaster', userAvatar: '🎓', content: 'Love that book too.', timestamp: new Date(Date.now() - 6800000) },
+  ],
+};
 
 const mockStories = [
   { id: 's1', userId: 'u1', username: 'You', avatar: '🎮', hasViewed: false },
@@ -110,9 +142,7 @@ const mockCollectibleShowcase: Record<string, Collectible[]> = {
     { id: 'u2-1', name: 'Book Owl', description: 'Wise owl loves reading', rarity: 'common', image: '🦉' },
     { id: 'u2-2', name: 'Star Unicorn', description: 'Legendary star unicorn', rarity: 'legendary', image: '🦄' },
   ],
-  u3: [
-    { id: 'u3-1', name: 'Science Rabbit', description: 'Curious rabbit experiments', rarity: 'rare', image: '🐰' },
-  ],
+  u3: [{ id: 'u3-1', name: 'Science Rabbit', description: 'Curious rabbit experiments', rarity: 'rare', image: '🐰' }],
   u4: [{ id: 'u4-1', name: 'Music Dragon', description: 'Musical dragon sings', rarity: 'epic', image: '🐉' }],
   u5: [{ id: 'u5-1', name: 'Art Panda', description: 'Creative panda paints', rarity: 'epic', image: '🐼' }],
 };
@@ -163,10 +193,9 @@ const pickRarity = (): Rarity => {
 };
 
 export const useAppStore = create<AppState>((set, get) => ({
-  // Auth
   isAuthenticated: false,
   authView: 'login',
-  
+
   user: {
     id: 'u1',
     displayName: 'Ari Carter',
@@ -179,10 +208,19 @@ export const useAppStore = create<AppState>((set, get) => ({
     streak: 7,
     joinedAt: new Date('2024-09-15'),
   },
+
+  preferences: {
+    pushNotifications: true,
+    privateProfile: false,
+    darkMode: false,
+  },
+
   challenges: mockChallenges,
   completedChallenges: [],
   posts: mockPosts,
   stories: mockStories,
+  likedPostIds: [],
+  commentsByPost: mockCommentsByPost,
   collectibles: [],
   caseOpening: false,
   lastOpenRewards: [],
@@ -194,34 +232,64 @@ export const useAppStore = create<AppState>((set, get) => ({
   currentPage: 'login',
 
   setAuthView: (view) => set({ authView: view }),
-  
+
   login: () => set({ isAuthenticated: true, currentPage: 'feed' }),
-  
+
   logout: () => set({ isAuthenticated: false, currentPage: 'login' }),
-  
+
   setCurrentPage: (page) => set({ currentPage: page }),
-  
+
   completeChallenge: (challengeId) => {
-    const challenge = get().challenges.find(c => c.id === challengeId);
+    const challenge = get().challenges.find((c) => c.id === challengeId);
     if (challenge && !challenge.completed) {
       set((state) => ({
-        challenges: state.challenges.map(c => 
-          c.id === challengeId ? { ...c, completed: true } : c
-        ),
+        challenges: state.challenges.map((c) => (c.id === challengeId ? { ...c, completed: true } : c)),
         completedChallenges: [...state.completedChallenges, challengeId],
         user: { ...state.user, coins: state.user.coins + challenge.coins, xp: state.user.xp + challenge.coins * 10 },
       }));
     }
   },
-  
+
   addPost: (post) => set((state) => ({ posts: [post, ...state.posts] })),
-  
-  likePost: (postId) => set((state) => ({
-    posts: state.posts.map(p => 
-      p.id === postId ? { ...p, likes: p.likes + 1 } : p
-    ),
-  })),
-  
+
+  togglePostLike: (postId) =>
+    set((state) => {
+      const hasLiked = state.likedPostIds.includes(postId);
+      return {
+        likedPostIds: hasLiked
+          ? state.likedPostIds.filter((id) => id !== postId)
+          : [...state.likedPostIds, postId],
+        posts: state.posts.map((p) =>
+          p.id === postId ? { ...p, likes: Math.max(0, p.likes + (hasLiked ? -1 : 1)) } : p,
+        ),
+      };
+    }),
+
+  addComment: (postId, content) => {
+    const trimmed = content.trim();
+    if (!trimmed) return;
+
+    set((state) => {
+      const nextComment: PostComment = {
+        id: `${postId}-${Date.now()}`,
+        postId,
+        userId: state.user.id,
+        username: state.user.displayName,
+        userAvatar: state.user.avatar,
+        content: trimmed,
+        timestamp: new Date(),
+      };
+
+      return {
+        commentsByPost: {
+          ...state.commentsByPost,
+          [postId]: [...(state.commentsByPost[postId] || []), nextComment],
+        },
+        posts: state.posts.map((p) => (p.id === postId ? { ...p, comments: p.comments + 1 } : p)),
+      };
+    });
+  },
+
   openCase: (caseType, casePrice) => {
     const currentCoins = get().user.coins;
     if (currentCoins < casePrice) {
@@ -290,41 +358,53 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     return rewards;
   },
-  
+
   setCaseOpening: (opening) => set({ caseOpening: opening }),
-  
+
   setLastOpenRewards: (rewards) => set({ lastOpenRewards: rewards }),
-  
-  addCollectible: (collectible) => set((state) => ({
-    collectibles: [...state.collectibles, collectible],
-    userCollectibleShowcase: {
-      ...state.userCollectibleShowcase,
-      [state.user.id]: [...(state.userCollectibleShowcase[state.user.id] || []), collectible],
-    },
-  })),
-  
+
+  addCollectible: (collectible) =>
+    set((state) => ({
+      collectibles: [...state.collectibles, collectible],
+      userCollectibleShowcase: {
+        ...state.userCollectibleShowcase,
+        [state.user.id]: [...(state.userCollectibleShowcase[state.user.id] || []), collectible],
+      },
+    })),
+
   selectGroup: (group) => set({ selectedGroup: group }),
 
-  openUserProfile: (userId) => set((state) => {
-    const selected = state.communityUsers.find((u) => u.id === userId) || null;
-    return { selectedUser: selected, currentPage: 'userProfile' };
-  }),
+  openUserProfile: (userId) =>
+    set((state) => {
+      const selected = state.communityUsers.find((u) => u.id === userId) || null;
+      return { selectedUser: selected, currentPage: 'userProfile' };
+    }),
 
   openEditProfile: () => set({ currentPage: 'editProfile' }),
 
-  updateCurrentUserProfile: ({ displayName, bio, avatar }) => set((state) => ({
-    user: { ...state.user, displayName, bio, avatar },
-    communityUsers: state.communityUsers.map((u) => (u.id === state.user.id ? { ...u, displayName, bio, avatar } : u)),
-    posts: state.posts.map((p) =>
-      p.userId === state.user.id ? { ...p, username: displayName, userAvatar: avatar } : p
-    ),
-  })),
-  
+  openSettings: () => set({ currentPage: 'settings' }),
+
+  updateCurrentUserProfile: ({ displayName, bio, avatar }) =>
+    set((state) => ({
+      user: { ...state.user, displayName, bio, avatar },
+      communityUsers: state.communityUsers.map((u) => (u.id === state.user.id ? { ...u, displayName, bio, avatar } : u)),
+      posts: state.posts.map((p) =>
+        p.userId === state.user.id ? { ...p, username: displayName, userAvatar: avatar } : p,
+      ),
+    })),
+
+  updatePreferences: (payload) =>
+    set((state) => ({
+      preferences: {
+        ...state.preferences,
+        ...payload,
+      },
+    })),
+
   addCoins: (amount) => set((state) => ({ user: { ...state.user, coins: state.user.coins + amount } })),
-  
-  markStoryViewed: (storyId) => set((state) => ({
-    stories: state.stories.map(s => 
-      s.id === storyId ? { ...s, hasViewed: true } : s
-    ),
-  })),
+
+  markStoryViewed: (storyId) =>
+    set((state) => ({
+      stories: state.stories.map((s) => (s.id === storyId ? { ...s, hasViewed: true } : s)),
+    })),
 }));

@@ -12,7 +12,7 @@ const rarityConfig: Record<Rarity, { color: string; bg: string; border: string; 
 };
 
 export default function Profile() {
-  const { user, challenges, stories, collectibles, userCollectibleShowcase, setCurrentPage, openEditProfile } = useAppStore();
+  const { user, challenges, stories, collectibles, userCollectibleShowcase, setCurrentPage, openEditProfile, openSettings } = useAppStore();
 
   const completedChallenges = challenges.filter((c) => c.completed).length;
   const totalChallenges = challenges.length;
@@ -36,7 +36,7 @@ export default function Profile() {
       <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-gray-100">
         <div className="flex items-center justify-between px-4 py-3">
           <h1 className="text-xl font-bold text-gray-900">@{user.username}</h1>
-          <button className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+          <button onClick={openSettings} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
             <Settings className="text-gray-600" size={22} />
           </button>
         </div>

@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { ArrowLeft } from 'lucide-react';
+
+const validateEmoji = (input: string) => input.trim().length > 0 && [...input.trim()].length <= 2;
 
 export default function EditProfile() {
   const { user, updateCurrentUserProfile, setCurrentPage } = useAppStore();
@@ -10,11 +12,29 @@ export default function EditProfile() {
     bio: user.bio,
   });
 
+  const displayName = form.displayName.trim();
+  const bio = form.bio.trim();
+
+  const errors = useMemo(() => {
+    return {
+      avatar: validateEmoji(form.avatar) ? '' : 'Use 1 emoji (max 2 symbols).',
+      displayName:
+        displayName.length < 2 || displayName.length > 30
+          ? 'Display name should be 2–30 characters.'
+          : '',
+      bio: bio.length > 120 ? 'Bio must be 120 characters or less.' : '',
+    };
+  }, [form.avatar, displayName.length, bio.length]);
+
+  const hasErrors = Boolean(errors.avatar || errors.displayName || errors.bio);
+
   const handleSave = () => {
+    if (hasErrors) return;
+
     updateCurrentUserProfile({
-      avatar: form.avatar || '🙂',
-      displayName: form.displayName.trim() || user.displayName,
-      bio: form.bio.trim(),
+      avatar: form.avatar.trim(),
+      displayName,
+      bio,
     });
     setCurrentPage('profile');
   };
@@ -45,6 +65,7 @@ export default function EditProfile() {
               className="mt-2 input-field text-center"
               placeholder="🙂"
             />
+            {errors.avatar && <p className="mt-1 text-xs text-red-500">{errors.avatar}</p>}
           </div>
 
           <div>
@@ -55,9 +76,7 @@ export default function EditProfile() {
               disabled
               className="input-field bg-gray-50 text-gray-400"
             />
-            <p className="text-xs text-gray-400 mt-1">
-              Username is unique and can’t be changed in this version.
-            </p>
+            <p className="text-xs text-gray-400 mt-1">Username is unique and can’t be changed in this version.</p>
           </div>
 
           <div>
@@ -69,10 +88,14 @@ export default function EditProfile() {
               className="input-field"
               placeholder="Your name"
             />
+            {errors.displayName && <p className="mt-1 text-xs text-red-500">{errors.displayName}</p>}
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Bio</label>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-medium text-gray-700">Bio</label>
+              <span className={`text-xs ${bio.length > 120 ? 'text-red-500' : 'text-gray-400'}`}>{bio.length}/120</span>
+            </div>
             <textarea
               value={form.bio}
               onChange={(e) => setForm({ ...form, bio: e.target.value })}
@@ -80,11 +103,13 @@ export default function EditProfile() {
               className="input-field resize-none"
               placeholder="Tell people about yourself"
             />
+            {errors.bio && <p className="mt-1 text-xs text-red-500">{errors.bio}</p>}
           </div>
 
           <button
             onClick={handleSave}
-            className="w-full rounded-xl bg-gradient-to-r from-primary-500 to-pink-500 py-3 text-white font-semibold shadow-glow-pink"
+            disabled={hasErrors}
+            className="w-full rounded-xl bg-gradient-to-r from-primary-500 to-pink-500 py-3 text-white font-semibold shadow-glow-pink disabled:opacity-50"
           >
             Save Profile
           </button>
