@@ -12,6 +12,7 @@ import UserProfile from './pages/UserProfile';
 import EditProfile from './pages/EditProfile';
 import Settings from './pages/Settings';
 import Comments from './pages/Comments';
+import StoryViewer from './pages/StoryViewer';
 
 // Icons
 import { Home, Box, User, List, Users } from 'lucide-react';
@@ -31,9 +32,8 @@ const pageVariants = {
 };
 
 function App() {
-  const { currentPage, isAuthenticated, setCurrentPage } = useAppStore();
+  const { currentPage, isAuthenticated, setCurrentPage, storyViewerOpen } = useAppStore();
 
-  // Show auth screen if not authenticated
   if (!isAuthenticated) {
     return <Auth />;
   }
@@ -63,11 +63,10 @@ function App() {
     }
   };
 
-  const hideBottomNav = ['editProfile', 'userProfile', 'settings', 'comments'].includes(currentPage);
+  const hideBottomNav = ['editProfile', 'userProfile', 'settings', 'comments'].includes(currentPage) || storyViewerOpen;
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Main Content with Page Transitions */}
       <AnimatePresence mode="wait">
         <motion.div
           key={currentPage}
@@ -82,21 +81,24 @@ function App() {
         </motion.div>
       </AnimatePresence>
 
-      {/* Bottom Navigation */}
+      {storyViewerOpen && (
+        <div className="fixed inset-0 z-[70]">
+          <StoryViewer />
+        </div>
+      )}
+
       {!hideBottomNav && <nav className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-xl border-t border-gray-100 z-50 safe-area-bottom">
         <div className="flex justify-around items-center max-w-md mx-auto px-2 py-2">
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = currentPage === item.id;
-            
+
             return (
               <button
                 key={item.id}
                 onClick={() => setCurrentPage(item.id)}
                 className={`relative flex flex-col items-center gap-1 p-2 rounded-2xl transition-all duration-200 ${
-                  isActive 
-                    ? 'text-primary-500' 
-                    : 'text-gray-400 hover:text-gray-600'
+                  isActive ? 'text-primary-500' : 'text-gray-400 hover:text-gray-600'
                 }`}
               >
                 {isActive && (
@@ -107,9 +109,9 @@ function App() {
                     transition={{ type: 'spring', stiffness: 500, damping: 30 }}
                   />
                 )}
-                <Icon 
-                  size={22} 
-                  className={`relative z-10 transition-transform duration-200 ${isActive ? 'scale-110' : ''}`} 
+                <Icon
+                  size={22}
+                  className={`relative z-10 transition-transform duration-200 ${isActive ? 'scale-110' : ''}`}
                 />
                 <span className="text-[10px] relative z-10 font-medium">{item.label}</span>
               </button>

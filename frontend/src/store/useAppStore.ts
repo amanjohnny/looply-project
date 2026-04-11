@@ -11,6 +11,7 @@ import type {
   RewardType,
   PostComment,
   CommentReport,
+  Story,
 } from '../types';
 
 interface AppState {
@@ -34,12 +35,14 @@ interface AppState {
 
   // Feed
   posts: UserPost[];
-  stories: { id: string; userId: string; username: string; avatar: string; hasViewed: boolean }[];
+  stories: Story[];
   likedPostIds: string[];
   commentsByPost: Record<string, PostComment[]>;
   activeCommentPostId: string | null;
   blockedUserIds: string[];
   reports: CommentReport[];
+  storyViewerOpen: boolean;
+  activeStoryIndex: number;
 
   // Collectibles
   collectibles: Collectible[];
@@ -63,6 +66,7 @@ interface AppState {
   setCurrentPage: (page: string) => void;
   completeChallenge: (challengeId: string) => void;
   addPost: (post: UserPost) => void;
+  createPost: (payload: { content: string; media?: string; challengeId?: string; challengeTitle?: string }) => { ok: boolean; error?: string };
   togglePostLike: (postId: string) => void;
   addComment: (postId: string, content: string) => { ok: boolean; error?: string };
   deleteComment: (postId: string, commentId: string) => void;
@@ -82,6 +86,11 @@ interface AppState {
   updatePreferences: (payload: Partial<AppState['preferences']>) => void;
   addCoins: (amount: number) => void;
   markStoryViewed: (storyId: string) => void;
+  addStory: (payload: { caption: string; media?: string }) => { ok: boolean; error?: string };
+  openStoryViewer: (storyId: string) => void;
+  closeStoryViewer: () => void;
+  nextStory: () => void;
+  prevStory: () => void;
 }
 
 const mockCollectibles: Collectible[] = [
@@ -122,13 +131,11 @@ const mockCommentsByPost: Record<string, PostComment[]> = {
   ],
 };
 
-const mockStories = [
-  { id: 's1', userId: 'u1', username: 'You', avatar: '🎮', hasViewed: false },
-  { id: 's2', userId: 'u1', username: 'StudyMaster', avatar: '🎓', hasViewed: true },
-  { id: 's3', userId: 'u2', username: 'BookWorm99', avatar: '📖', hasViewed: true },
-  { id: 's4', userId: 'u3', username: 'ScienceGirl', avatar: '🔬', hasViewed: false },
-  { id: 's5', userId: 'u4', username: 'MusicKid', avatar: '🎵', hasViewed: false },
-  { id: 's6', userId: 'u5', username: 'ArtisticSoul', avatar: '🎨', hasViewed: true },
+const mockStories: Story[] = [
+  { id: 's1', userId: 'u1', username: 'You', avatar: '🎮', caption: 'Daily progress check-in ✨', media: '📚', hasViewed: false, createdAt: new Date(Date.now() - 5400000) },
+  { id: 's2', userId: 'u2', username: 'BookWorm99', avatar: '📖', caption: 'New reading corner unlocked!', media: '☕', hasViewed: true, createdAt: new Date(Date.now() - 7200000) },
+  { id: 's3', userId: 'u3', username: 'ScienceGirl', avatar: '🔬', caption: 'Experiment day ⚗️', media: '🧪', hasViewed: false, createdAt: new Date(Date.now() - 9000000) },
+  { id: 's4', userId: 'u4', username: 'MusicKid', avatar: '🎵', caption: 'Practice set complete', media: '🎹', hasViewed: false, createdAt: new Date(Date.now() - 9600000) },
 ];
 
 const mockGroups: Group[] = [
@@ -249,6 +256,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   activeCommentPostId: null,
   blockedUserIds: [],
   reports: [],
+  storyViewerOpen: false,
+  activeStoryIndex: 0,
   collectibles: [],
   caseOpening: false,
   lastOpenRewards: [],
@@ -279,6 +288,33 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   addPost: (post) => set((state) => ({ posts: [post, ...state.posts] })),
+
+  createPost: ({ content, media, challengeId, challengeTitle }) => {
+    const trimmed = content.trim();
+    if (!trimmed) return { ok: false, error: 'Post cannot be empty.' };
+    if (trimmed.length > 280) return { ok: false, error: 'Post must be 280 characters or less.' };
+
+    set((state) => ({
+      posts: [
+        {
+          id: `p-${Date.now()}`,
+          userId: state.user.id,
+          username: state.user.displayName,
+          userAvatar: state.user.avatar,
+          challengeId: challengeId || 'custom',
+          challengeTitle: challengeTitle || 'General',
+          content: trimmed,
+          image: media,
+          likes: 0,
+          comments: 0,
+          timestamp: new Date(),
+        },
+        ...state.posts,
+      ],
+    }));
+
+    return { ok: true };
+  },
 
   togglePostLike: (postId) =>
     set((state) => {
@@ -481,5 +517,59 @@ export const useAppStore = create<AppState>((set, get) => ({
   markStoryViewed: (storyId) =>
     set((state) => ({
       stories: state.stories.map((s) => (s.id === storyId ? { ...s, hasViewed: true } : s)),
+    })),
+
+  addStory: ({ caption, media }) => {
+    const trimmed = caption.trim();
+    if (!trimmed) return { ok: false, error: 'Story caption cannot be empty.' };
+    if (trimmed.length > 120) return { ok: false, error: 'Story caption must be 120 characters or less.' };
+
+    set((state) => ({
+      stories: [
+        {
+          id: `s-${Date.now()}`,
+          userId: state.user.id,
+          username: 'You',
+          avatar: state.user.avatar,
+          caption: trimmed,
+          media: media || '✨',
+          hasViewed: false,
+          createdAt: new Date(),
+        },
+        ...state.stories,
+      ],
+    }));
+
+    return { ok: true };
+  },
+
+  openStoryViewer: (storyId) =>
+    set((state) => {
+      const index = state.stories.findIndex((story) => story.id === storyId);
+      if (index === -1) return {};
+      return {
+        storyViewerOpen: true,
+        activeStoryIndex: index,
+        stories: state.stories.map((story, i) => (i === index ? { ...story, hasViewed: true } : story)),
+      };
+    }),
+
+  closeStoryViewer: () => set({ storyViewerOpen: false }),
+
+  nextStory: () =>
+    set((state) => {
+      if (state.activeStoryIndex >= state.stories.length - 1) {
+        return { storyViewerOpen: false };
+      }
+      const nextIndex = state.activeStoryIndex + 1;
+      return {
+        activeStoryIndex: nextIndex,
+        stories: state.stories.map((story, i) => (i === nextIndex ? { ...story, hasViewed: true } : story)),
+      };
+    }),
+
+  prevStory: () =>
+    set((state) => ({
+      activeStoryIndex: Math.max(0, state.activeStoryIndex - 1),
     })),
 }));

@@ -47,6 +47,17 @@ export interface PostComment {
   timestamp: Date;
 }
 
+export interface Story {
+  id: string;
+  userId: string;
+  username: string;
+  avatar: string;
+  caption: string;
+  media?: string;
+  hasViewed: boolean;
+  createdAt: Date;
+}
+
 export interface UserPost {
   id: string;
   userId: string;

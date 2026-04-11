@@ -1,13 +1,37 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { Heart, MessageCircle, Send, Bookmark, MoreHorizontal, Award, Plus } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
+const mediaOptions = ['✨', '📸', '📝', '🎯', '🔥'];
+
 export default function Feed() {
-  const { posts, stories, togglePostLike, markStoryViewed, setCurrentPage, openUserProfile, likedPostIds, openComments } = useAppStore();
+  const {
+    user,
+    posts,
+    stories,
+    challenges,
+    createPost,
+    addStory,
+    togglePostLike,
+    setCurrentPage,
+    openUserProfile,
+    likedPostIds,
+    openComments,
+    openStoryViewer,
+  } = useAppStore();
+
   const [savedPosts, setSavedPosts] = useState<string[]>([]);
-  const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
-  const [expandedComments, setExpandedComments] = useState<string[]>([]);
+  const [postDraft, setPostDraft] = useState('');
+  const [postMedia, setPostMedia] = useState('');
+  const [selectedChallengeId, setSelectedChallengeId] = useState('');
+  const [postFeedback, setPostFeedback] = useState('');
+
+  const [storyCaption, setStoryCaption] = useState('');
+  const [storyMedia, setStoryMedia] = useState('✨');
+  const [storyFeedback, setStoryFeedback] = useState('');
+
+  const challengeOptions = useMemo(() => challenges.slice(0, 4), [challenges]);
 
   const formatTime = (date: Date) => {
     const now = new Date();
@@ -23,10 +47,35 @@ export default function Feed() {
     setSavedPosts((prev) => (prev.includes(postId) ? prev.filter((id) => id !== postId) : [...prev, postId]));
   };
 
-  const toggleComments = (postId: string) => {
-    setExpandedComments((prev) =>
-      prev.includes(postId) ? prev.filter((id) => id !== postId) : [...prev, postId],
-    );
+  const handleCreatePost = () => {
+    const selectedChallenge = challengeOptions.find((item) => item.id === selectedChallengeId);
+    const result = createPost({
+      content: postDraft,
+      media: postMedia || undefined,
+      challengeId: selectedChallenge?.id,
+      challengeTitle: selectedChallenge?.title,
+    });
+
+    if (!result.ok) {
+      setPostFeedback(result.error || 'Unable to create post.');
+      return;
+    }
+
+    setPostDraft('');
+    setPostMedia('');
+    setSelectedChallengeId('');
+    setPostFeedback('Posted!');
+  };
+
+  const handleCreateStory = () => {
+    const result = addStory({ caption: storyCaption, media: storyMedia });
+    if (!result.ok) {
+      setStoryFeedback(result.error || 'Unable to add story.');
+      return;
+    }
+    setStoryCaption('');
+    setStoryMedia('✨');
+    setStoryFeedback('Story added!');
   };
 
   return (
@@ -46,19 +95,68 @@ export default function Feed() {
         </div>
       </header>
 
-      <div className="border-b border-gray-100 py-3">
+      <div className="p-4 space-y-3 border-b border-gray-100 bg-white">
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-200 to-pink-200 flex items-center justify-center text-xl">{user.avatar}</div>
+          <div className="flex-1 space-y-2">
+            <textarea
+              value={postDraft}
+              onChange={(e) => setPostDraft(e.target.value)}
+              maxLength={280}
+              rows={3}
+              placeholder="Share your progress..."
+              className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary-300"
+            />
+            <div className="flex items-center justify-between text-xs text-gray-400">
+              <span>{postDraft.trim().length}/280</span>
+              <span className="break-words">{postFeedback}</span>
+            </div>
+            <div className="flex items-center gap-2 overflow-x-auto hide-scrollbar pb-1">
+              {mediaOptions.map((m) => (
+                <button key={m} onClick={() => setPostMedia((prev) => (prev === m ? '' : m))} className={`h-8 w-8 rounded-lg border text-lg ${postMedia === m ? 'border-primary-400 bg-primary-50' : 'border-gray-200 bg-white'}`}>{m}</button>
+              ))}
+              <select value={selectedChallengeId} onChange={(e) => setSelectedChallengeId(e.target.value)} className="h-8 rounded-lg border border-gray-200 px-2 text-xs bg-white">
+                <option value="">General</option>
+                {challengeOptions.map((challenge) => <option key={challenge.id} value={challenge.id}>{challenge.title}</option>)}
+              </select>
+              <button onClick={handleCreatePost} className="ml-auto rounded-lg bg-gradient-to-r from-primary-500 to-pink-500 px-3 py-1.5 text-xs font-semibold text-white">Post</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="border-b border-gray-100 py-3 bg-white">
+        <div className="px-4 mb-3 space-y-2">
+          <div className="flex items-center gap-2">
+            <input
+              value={storyCaption}
+              onChange={(e) => setStoryCaption(e.target.value)}
+              maxLength={120}
+              placeholder="Create a story caption..."
+              className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-primary-300"
+            />
+            <select value={storyMedia} onChange={(e) => setStoryMedia(e.target.value)} className="rounded-lg border border-gray-200 px-2 py-2 text-xs bg-white">
+              {mediaOptions.map((m) => <option key={m} value={m}>{m}</option>)}
+            </select>
+            <button onClick={handleCreateStory} className="rounded-lg bg-primary-500 px-3 py-2 text-xs font-semibold text-white">Add</button>
+          </div>
+          {storyFeedback && <p className="text-xs text-primary-600 break-words">{storyFeedback}</p>}
+        </div>
+
         <div className="flex gap-4 px-4 overflow-x-auto hide-scrollbar">
           <div className="flex-shrink-0 text-center">
-            <button className="w-16 h-16 rounded-full border-2 border-dashed border-gray-300 flex items-center justify-center hover:border-primary-400 hover:bg-primary-50/50 transition-all group">
+            <button onClick={handleCreateStory} className="w-16 h-16 rounded-full border-2 border-dashed border-gray-300 flex items-center justify-center hover:border-primary-400 hover:bg-primary-50/50 transition-all group">
               <Plus className="text-gray-400 group-hover:text-primary-500" />
             </button>
-            <p className="text-xs text-gray-500 mt-1">Add</p>
+            <p className="text-xs text-gray-500 mt-1">Story</p>
           </div>
 
           {stories.map((story) => (
-            <div key={story.id} className="flex-shrink-0 text-center cursor-pointer" onClick={() => markStoryViewed(story.id)}>
-              <div className={`w-16 h-16 rounded-full p-0.5 ${story.id === 's1' || !story.hasViewed ? 'story-ring' : ''}`}>
-                <div className={`w-full h-full rounded-full flex items-center justify-center text-2xl ${story.hasViewed ? 'bg-gray-100' : 'bg-white border-2 border-white'}`}>{story.avatar}</div>
+            <div key={story.id} className="flex-shrink-0 text-center cursor-pointer" onClick={() => openStoryViewer(story.id)}>
+              <div className={`w-16 h-16 rounded-full p-0.5 ${story.userId === user.id || !story.hasViewed ? 'story-ring' : ''}`}>
+                <div className={`w-full h-full rounded-full flex items-center justify-center text-2xl ${story.hasViewed ? 'bg-gray-100' : 'bg-white border-2 border-white'}`}>
+                  {story.media || story.avatar}
+                </div>
               </div>
               <p className="text-xs text-gray-600 mt-1 truncate w-16">{story.username}</p>
             </div>
