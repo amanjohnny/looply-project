@@ -93,6 +93,8 @@ export interface Group {
   memberCount: number;
   challengesCreated: number;
   ownerId: string;
+  username: string;
+  inviteCode: string;
   isPrivate?: boolean;
   adminIds?: string[];
   rules?: string;

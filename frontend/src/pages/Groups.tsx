@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
-import type { DirectMessage, GroupMessage } from '../types';
+import type { DirectMessage, GroupMessage, Group } from '../types';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Users,
@@ -21,6 +21,9 @@ import {
   Shield,
   ChevronDown,
   SlidersHorizontal,
+  Pin,
+  Images,
+  Sparkles,
 } from 'lucide-react';
 
 const emojiChoices = ['📚', '🧠', '🎯', '💬', '🚀', '🎨'];
@@ -39,18 +42,37 @@ interface StagedAttachment {
 interface ChatComposerProps {
   isOpen: boolean;
   onReveal: () => void;
+  onCollapse: () => void;
   onSend: (payload: { content: string; type: OutgoingMessageType }) => void;
 }
 
-function ChatComposer({ isOpen, onReveal, onSend }: ChatComposerProps) {
+function ChatComposer({ isOpen, onReveal, onCollapse, onSend }: ChatComposerProps) {
   const [value, setValue] = useState('');
   const [showAttachMenu, setShowAttachMenu] = useState(false);
   const [mode, setMode] = useState<ComposerMode>('audio');
   const [recording, setRecording] = useState(false);
   const [stagedAttachment, setStagedAttachment] = useState<StagedAttachment | null>(null);
   const [helper, setHelper] = useState('');
+  const [isFocused, setIsFocused] = useState(false);
   const holdTimer = useRef<number | null>(null);
+  const collapseTimer = useRef<number | null>(null);
   const longPressActive = useRef(false);
+  const touchStartY = useRef<number | null>(null);
+
+  const keepOpen = () => {
+    onReveal();
+    if (collapseTimer.current) {
+      window.clearTimeout(collapseTimer.current);
+      collapseTimer.current = null;
+    }
+  };
+
+  const scheduleCollapse = (delay = 1200) => {
+    if (collapseTimer.current) window.clearTimeout(collapseTimer.current);
+    collapseTimer.current = window.setTimeout(() => {
+      if (!isFocused && !showAttachMenu) onCollapse();
+    }, delay);
+  };
 
   const stageAttachment = (next: StagedAttachment) => {
     if (stagedAttachment && stagedAttachment.type !== next.type) {
@@ -60,26 +82,25 @@ function ChatComposer({ isOpen, onReveal, onSend }: ChatComposerProps) {
     }
     setStagedAttachment(next);
     setShowAttachMenu(false);
+    keepOpen();
   };
 
   const sendPayload = () => {
     const text = value.trim();
     if (!text && !stagedAttachment) {
       setHelper('Add text or stage one item before sending.');
+      keepOpen();
       return;
     }
 
-    if (text) {
-      onSend({ type: 'text', content: text });
-    }
-    if (stagedAttachment) {
-      onSend({ type: stagedAttachment.type, content: stagedAttachment.content });
-    }
+    if (text) onSend({ type: 'text', content: text });
+    if (stagedAttachment) onSend({ type: stagedAttachment.type, content: stagedAttachment.content });
 
     setValue('');
     setStagedAttachment(null);
-    setHelper('');
-    setShowAttachMenu(false);
+    setHelper('Sent');
+    keepOpen();
+    scheduleCollapse(1800);
   };
 
   const onActionDown = () => {
@@ -87,6 +108,7 @@ function ChatComposer({ isOpen, onReveal, onSend }: ChatComposerProps) {
     holdTimer.current = window.setTimeout(() => {
       longPressActive.current = true;
       setRecording(true);
+      keepOpen();
     }, 260);
   };
 
@@ -110,154 +132,162 @@ function ChatComposer({ isOpen, onReveal, onSend }: ChatComposerProps) {
     setMode((prev) => (prev === 'audio' ? 'video' : 'audio'));
   };
 
+  useEffect(() => () => {
+    if (collapseTimer.current) window.clearTimeout(collapseTimer.current);
+    if (holdTimer.current) window.clearTimeout(holdTimer.current);
+  }, []);
+
   return (
     <motion.div
       initial={false}
-      animate={{ y: isOpen ? 0 : 64, opacity: isOpen ? 1 : 0.92 }}
-      transition={{ type: 'spring', stiffness: 340, damping: 36 }}
-      className="relative border-t border-gray-100 bg-white/95 backdrop-blur px-3 pb-4 pt-2"
-      onClick={onReveal}
+      animate={{ height: isOpen ? 178 : 30, y: 0, opacity: 1 }}
+      transition={{ type: 'spring', stiffness: 360, damping: 34 }}
+      className="relative overflow-visible border-t border-gray-100 bg-white/95 backdrop-blur"
+      onMouseEnter={keepOpen}
+      onMouseLeave={() => scheduleCollapse()}
+      onTouchStart={(e) => {
+        touchStartY.current = e.touches[0]?.clientY ?? null;
+      }}
+      onTouchEnd={(e) => {
+        const endY = e.changedTouches[0]?.clientY;
+        if (touchStartY.current == null || endY == null) return;
+        const delta = touchStartY.current - endY;
+        if (delta > 20) keepOpen();
+        if (delta < -28) onCollapse();
+      }}
     >
-      <div className="mx-auto mb-2 h-1.5 w-12 rounded-full bg-gray-200" />
+      <button onClick={keepOpen} className="h-[30px] w-full flex items-center justify-center">
+        <span className="h-1.5 w-14 rounded-full bg-gray-300" />
+      </button>
 
       <AnimatePresence>
-        {stagedAttachment && (
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 6 }}
-            className="mb-2 flex items-center justify-between rounded-xl border border-primary-100 bg-primary-50 px-3 py-2 text-xs"
-          >
-            <p className="font-medium text-primary-700">Staged: {stagedAttachment.label}</p>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setStagedAttachment(null);
-                setHelper('');
-              }}
-              className="rounded-md px-2 py-1 text-primary-600 hover:bg-primary-100"
-            >
-              Remove
-            </button>
+        {isOpen && (
+          <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} className="px-3 pb-4">
+            {stagedAttachment && (
+              <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="mb-2 flex items-center justify-between rounded-xl border border-primary-100 bg-primary-50 px-3 py-2 text-xs">
+                <p className="font-medium text-primary-700">Staged: {stagedAttachment.label}</p>
+                <button onClick={() => setStagedAttachment(null)} className="rounded-md px-2 py-1 text-primary-600 hover:bg-primary-100">Remove</button>
+              </motion.div>
+            )}
+
+            <div className="flex items-end gap-2">
+              <div className="relative">
+                <button onClick={() => { keepOpen(); setShowAttachMenu((prev) => !prev); }} className="h-10 w-10 rounded-xl bg-gray-100 text-gray-600 flex items-center justify-center"><Paperclip size={18} /></button>
+                <AnimatePresence>
+                  {showAttachMenu && (
+                    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }} className="absolute bottom-12 left-0 z-20 rounded-2xl border border-gray-200 bg-white p-2 shadow-xl w-52">
+                      {[
+                        { label: 'Document', icon: '📄', type: 'document' as StagedAttachmentType, content: '📄 Document placeholder' },
+                        { label: 'Image', icon: '🖼️', type: 'image' as StagedAttachmentType, content: '🖼️ Image placeholder' },
+                        { label: 'Video circle', icon: '🎬', type: 'video' as StagedAttachmentType, content: '🎬 Video circle placeholder' },
+                        { label: 'Gift Collectible', icon: '🎁', type: 'gift' as StagedAttachmentType, content: '🎁 Gift collectible placeholder' },
+                      ].map((item) => (
+                        <button key={item.label} onClick={() => stageAttachment({ type: item.type, content: item.content, label: item.label })} className="w-full px-3 py-2 rounded-xl text-left text-sm hover:bg-gray-100">{item.icon} {item.label}</button>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              <div className="flex-1 rounded-2xl border border-gray-200 bg-white px-3 py-2">
+                <div className="mb-1 flex items-center gap-2">
+                  <button onClick={() => { keepOpen(); setValue((prev) => `${prev}${prev ? ' ' : ''}😊`); }} className="text-gray-500"><Smile size={16} /></button>
+                  <button onClick={() => stageAttachment({ type: 'sticker', content: '🧷 Sticker placeholder', label: 'Sticker' })} className="text-gray-500"><Sticker size={16} /></button>
+                  <button onClick={() => stageAttachment({ type: 'image', content: '🖼️ Image placeholder', label: 'Image' })} className="text-gray-500"><ImageIcon size={16} /></button>
+                </div>
+                <input
+                  value={value}
+                  onChange={(e) => setValue(e.target.value)}
+                  onFocus={() => { setIsFocused(true); keepOpen(); }}
+                  onBlur={() => { setIsFocused(false); scheduleCollapse(); }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      sendPayload();
+                    }
+                  }}
+                  placeholder="Message"
+                  className="w-full text-sm bg-transparent focus:outline-none"
+                />
+              </div>
+
+              <button onClick={sendPayload} className="h-10 w-10 rounded-xl bg-primary-500 text-white flex items-center justify-center" title="Send staged message"><Send size={16} /></button>
+
+              {!value.trim() && !stagedAttachment && (
+                <button
+                  onMouseDown={onActionDown}
+                  onMouseUp={onActionUp}
+                  onMouseLeave={() => recording && onActionUp()}
+                  onTouchStart={onActionDown}
+                  onTouchEnd={onActionUp}
+                  className={`h-10 w-10 rounded-xl flex items-center justify-center ${recording ? 'bg-red-500 text-white animate-pulse' : 'bg-gray-100 text-gray-600'}`}
+                  title="Tap to switch audio/video, hold to stage"
+                >
+                  <motion.div key={mode} initial={{ scale: 0.6, rotate: -24, opacity: 0 }} animate={{ scale: 1, rotate: 0, opacity: 1 }} transition={{ type: 'spring', stiffness: 400, damping: 24 }}>
+                    {mode === 'audio' ? <Mic size={16} /> : <Video size={16} />}
+                  </motion.div>
+                </button>
+              )}
+            </div>
+
+            {(recording || helper) && <p className={`mt-2 text-[11px] ${recording ? 'text-red-500' : 'text-gray-500'}`}>{recording ? `Recording ${mode}… release to stage placeholder.` : helper}</p>}
           </motion.div>
         )}
       </AnimatePresence>
+    </motion.div>
+  );
+}
 
-      <div className="flex items-end gap-2">
-        <div className="relative">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onReveal();
-              setShowAttachMenu((prev) => !prev);
-            }}
-            className="h-10 w-10 rounded-xl bg-gray-100 text-gray-600 flex items-center justify-center"
-          >
-            <Paperclip size={18} />
-          </button>
-          <AnimatePresence>
-            {showAttachMenu && (
-              <motion.div
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 8 }}
-                className="absolute bottom-12 left-0 z-20 rounded-2xl border border-gray-200 bg-white p-2 shadow-xl w-52"
-              >
-                {[
-                  { label: 'Document', icon: '📄', type: 'document' as StagedAttachmentType, content: '📄 Document placeholder' },
-                  { label: 'Image', icon: '🖼️', type: 'image' as StagedAttachmentType, content: '🖼️ Image placeholder' },
-                  { label: 'Video circle', icon: '🎬', type: 'video' as StagedAttachmentType, content: '🎬 Video circle placeholder' },
-                  { label: 'Gift Collectible', icon: '🎁', type: 'gift' as StagedAttachmentType, content: '🎁 Gift collectible placeholder' },
-                ].map((item) => (
-                  <button
-                    key={item.label}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      stageAttachment({ type: item.type, content: item.content, label: item.label });
-                    }}
-                    className="w-full px-3 py-2 rounded-xl text-left text-sm hover:bg-gray-100"
-                  >
-                    {item.icon} {item.label}
-                  </button>
-                ))}
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
+function GroupProfileSheet({ group, messages, onClose, onOpenStory }: { group: Group; messages: GroupMessage[]; onClose: () => void; onOpenStory: (storyId: string) => void }) {
+  const stories = useAppStore((s) => s.stories);
+  const communityUsers = useAppStore((s) => s.communityUsers);
+  const groupStories = stories.filter((story) => group.adminIds?.includes(story.userId) || story.userId === group.ownerId);
+  const pinnedMessages = messages.slice(-3).reverse();
+  const sharedMedia = messages.filter((message) => ['image', 'video', 'sticker'].includes(message.type)).slice(-6).reverse();
 
-        <div className="flex-1 rounded-2xl border border-gray-200 bg-white px-3 py-2">
-          <div className="mb-1 flex items-center gap-2">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setValue((prev) => `${prev}${prev ? ' ' : ''}😊`);
-                onReveal();
-              }}
-              className="text-gray-500"
-            ><Smile size={16} /></button>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                stageAttachment({ type: 'sticker', content: '🧷 Sticker placeholder', label: 'Sticker' });
-              }}
-              className="text-gray-500"
-            ><Sticker size={16} /></button>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                stageAttachment({ type: 'image', content: '🖼️ Image placeholder', label: 'Image' });
-              }}
-              className="text-gray-500"
-            ><ImageIcon size={16} /></button>
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-50 flex items-end p-3">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <motion.div initial={{ y: 26 }} animate={{ y: 0 }} exit={{ y: 20 }} className="relative z-10 w-full max-h-[88%] overflow-y-auto rounded-3xl border border-gray-100 bg-white p-5">
+        <div className="mb-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-primary-200 to-pink-200 flex items-center justify-center text-2xl">{group.avatar}</div>
+            <div>
+              <h3 className="font-bold text-gray-900 text-lg">{group.name}</h3>
+              <p className="text-xs text-gray-500">@{group.username} • code {group.inviteCode}</p>
+            </div>
           </div>
-          <input
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            onFocus={onReveal}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                sendPayload();
-              }
-            }}
-            placeholder="Message"
-            className="w-full text-sm bg-transparent focus:outline-none"
-          />
+          <button onClick={onClose} className="rounded-full p-2 hover:bg-gray-100"><X size={18} /></button>
         </div>
 
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            sendPayload();
-          }}
-          className="h-10 w-10 rounded-xl bg-primary-500 text-white flex items-center justify-center"
-          title="Send staged message"
-        >
-          <Send size={16} />
-        </button>
+        <p className="rounded-2xl bg-gray-50 px-3 py-2 text-sm text-gray-600">{group.description}</p>
 
-        {!value.trim() && !stagedAttachment && (
-          <button
-            onMouseDown={onActionDown}
-            onMouseUp={onActionUp}
-            onMouseLeave={() => recording && onActionUp()}
-            onTouchStart={onActionDown}
-            onTouchEnd={onActionUp}
-            className={`h-10 w-10 rounded-xl flex items-center justify-center ${recording ? 'bg-red-500 text-white animate-pulse' : 'bg-gray-100 text-gray-600'}`}
-            title="Tap to switch audio/video, hold to stage"
-          >
-            <motion.div key={mode} initial={{ scale: 0.6, rotate: -24, opacity: 0 }} animate={{ scale: 1, rotate: 0, opacity: 1 }} transition={{ type: 'spring', stiffness: 400, damping: 24 }}>
-              {mode === 'audio' ? <Mic size={16} /> : <Video size={16} />}
-            </motion.div>
-          </button>
-        )}
-      </div>
+        <div className="mt-4 rounded-2xl border border-gray-100 p-3">
+          <h4 className="mb-2 text-sm font-semibold text-gray-900 flex items-center gap-2"><Pin size={14} />Pinned items</h4>
+          {pinnedMessages.length === 0 ? <p className="text-xs text-gray-500">No pinned items yet.</p> : pinnedMessages.map((message) => {
+            const sender = communityUsers.find((user) => user.id === message.senderId);
+            return <p key={message.id} className="text-xs text-gray-600 py-1">{sender?.displayName || 'Member'}: {message.content}</p>;
+          })}
+        </div>
 
-      {(recording || helper) && (
-        <p className={`mt-2 text-[11px] ${recording ? 'text-red-500' : 'text-gray-500'}`}>
-          {recording ? `Recording ${mode}… release to stage placeholder.` : helper}
-        </p>
-      )}
+        <div className="mt-4 rounded-2xl border border-gray-100 p-3">
+          <h4 className="mb-2 text-sm font-semibold text-gray-900 flex items-center gap-2"><Images size={14} />Shared media</h4>
+          {sharedMedia.length === 0 ? <p className="text-xs text-gray-500">No shared media yet.</p> : (
+            <div className="grid grid-cols-2 gap-2">
+              {sharedMedia.map((item) => <div key={item.id} className="rounded-xl bg-gray-50 px-2 py-3 text-xs text-gray-600">{item.content}</div>)}
+            </div>
+          )}
+        </div>
+
+        <div className="mt-4 rounded-2xl border border-gray-100 p-3">
+          <h4 className="mb-2 text-sm font-semibold text-gray-900 flex items-center gap-2"><Sparkles size={14} />Group stories</h4>
+          {groupStories.length === 0 ? <p className="text-xs text-gray-500">No stories from admins yet.</p> : (
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {groupStories.map((story) => <button key={story.id} onClick={() => onOpenStory(story.id)} className="shrink-0 rounded-xl border border-gray-100 bg-gray-50 px-3 py-2 text-xs">{story.avatar} {story.username}</button>)}
+            </div>
+          )}
+        </div>
+      </motion.div>
     </motion.div>
   );
 }
@@ -293,9 +323,11 @@ export default function Chats() {
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showDirectDetails, setShowDirectDetails] = useState(false);
+  const [showGroupDetails, setShowGroupDetails] = useState(false);
   const [groupName, setGroupName] = useState('');
   const [groupDescription, setGroupDescription] = useState('');
   const [groupAvatar, setGroupAvatar] = useState('📚');
+  const [groupUsername, setGroupUsername] = useState('');
   const [groupPrivate, setGroupPrivate] = useState(false);
   const [groupRules, setGroupRules] = useState('Be kind and keep messages on-topic.');
   const [groupFeedback, setGroupFeedback] = useState('');
@@ -357,6 +389,7 @@ export default function Chats() {
     if (activeThread) {
       setTimeout(() => scrollToBottom('dm'), 0);
       setDirectComposerOpen(false);
+      setShowDirectDetails(false);
     }
   }, [activeThread?.id]);
 
@@ -364,11 +397,12 @@ export default function Chats() {
     if (activeGroup) {
       setTimeout(() => scrollToBottom('group'), 0);
       setGroupComposerOpen(false);
+      setShowGroupDetails(false);
     }
   }, [activeGroup?.id]);
 
   const handleCreateGroup = () => {
-    const result = createGroup({ name: groupName, description: groupDescription, avatar: groupAvatar });
+    const result = createGroup({ name: groupName, description: groupDescription, avatar: groupAvatar, username: groupUsername });
     if (!result.ok) {
       setGroupFeedback(result.error || 'Unable to create group.');
       return;
@@ -378,15 +412,14 @@ export default function Chats() {
     if (latestCreated) {
       updateGroupMeta(latestCreated.id, { rules: groupRules, adminIdToAdd: user.id });
       if (groupPrivate) {
-        useAppStore.setState((state) => ({
-          groups: state.groups.map((g) => (g.id === latestCreated.id ? { ...g, isPrivate: true } : g)),
-        }));
+        useAppStore.setState((state) => ({ groups: state.groups.map((g) => (g.id === latestCreated.id ? { ...g, isPrivate: true } : g)) }));
       }
     }
 
     setGroupName('');
     setGroupDescription('');
     setGroupAvatar('📚');
+    setGroupUsername('');
     setGroupPrivate(false);
     setGroupRules('Be kind and keep messages on-topic.');
     setGroupFeedback('Group created.');
@@ -397,21 +430,13 @@ export default function Chats() {
     const background = directChatBackgroundByThreadId[activeThread.id] || 'bg-gray-50';
 
     return (
-      <motion.div
-        ref={dmScreenRef}
-        initial={{ opacity: 0, x: 20 }}
-        animate={{ opacity: 1, x: 0 }}
-        exit={{ opacity: 0, x: -16 }}
-        transition={{ type: 'spring', stiffness: 280, damping: 30 }}
-        className="relative max-w-md mx-auto min-h-screen flex flex-col bg-white pb-20 overflow-hidden"
-        onMouseMove={(e) => revealComposerOnEdge('dm', e.clientY)}
-      >
+      <motion.div ref={dmScreenRef} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -16 }} transition={{ type: 'spring', stiffness: 280, damping: 30 }} className="relative max-w-md mx-auto min-h-screen flex flex-col bg-white overflow-hidden" onMouseMove={(e) => {
+        const rect = dmScreenRef.current?.getBoundingClientRect();
+        if (rect && e.clientY > rect.bottom - 46) setDirectComposerOpen(true);
+      }}>
         <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-gray-100 px-4 py-3 flex items-center gap-3">
           <button onClick={closeDirectThread} className="p-2 rounded-full hover:bg-gray-100"><ArrowLeft size={20} /></button>
-          <button onClick={() => {
-            const targetStory = stories.find((story) => story.userId === activeThreadUser.id);
-            if (targetStory) openStoryViewer(targetStory.id);
-          }} className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-200 to-pink-200 flex items-center justify-center text-xl">{activeThreadUser.avatar}</button>
+          <button onClick={() => { const targetStory = stories.find((story) => story.userId === activeThreadUser.id); if (targetStory) openStoryViewer(targetStory.id); }} className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-200 to-pink-200 flex items-center justify-center text-xl">{activeThreadUser.avatar}</button>
           <div className="flex-1">
             <button onClick={() => openUserProfile(activeThreadUser.id)} className="font-bold text-gray-900">{activeThreadUser.displayName}</button>
             <p className="text-xs text-gray-500">@{activeThreadUser.username}</p>
@@ -421,57 +446,30 @@ export default function Chats() {
 
         <div ref={dmScrollRef} onScroll={(e) => {
           const el = e.currentTarget;
-          const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 48;
-          setDmAtBottom(atBottom);
-        }} className={`flex-1 overflow-y-auto p-4 pb-40 space-y-3 transition-colors ${background}`} onClick={(e) => {
+          setDmAtBottom(el.scrollHeight - el.scrollTop - el.clientHeight < 48);
+        }} className={`flex-1 overflow-y-auto p-4 pb-48 space-y-3 transition-colors ${background}`} onClick={(e) => {
           const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
-          if (e.clientY > rect.bottom - 120) setDirectComposerOpen(true);
+          if (e.clientY > rect.bottom - 90) setDirectComposerOpen(true);
         }}>
           {activeThread.messages.length === 0 && <p className="text-sm text-gray-500 text-center">Start your first message.</p>}
           {activeThread.messages.map((message, index) => {
             const mine = message.senderId === user.id;
             return (
-              <motion.div
-                key={message.id}
-                initial={{ opacity: 0, y: 16, scale: 0.94 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                transition={{ delay: Math.min(index * 0.04, 0.25), type: 'spring', stiffness: 340, damping: 20, mass: 0.55 }}
-                className={`flex ${mine ? 'justify-end' : 'justify-start'}`}
-              >
-                <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm ${mine ? 'bg-primary-500 text-white' : 'bg-white border border-gray-200 text-gray-800'}`}>
-                  <p>{message.content}</p>
-                  <p className={`mt-1 text-[10px] ${mine ? 'text-primary-100' : 'text-gray-400'}`}>{message.type}</p>
-                </div>
+              <motion.div key={message.id} initial={{ opacity: 0, y: 16, scale: 0.94 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ delay: Math.min(index * 0.04, 0.25), type: 'spring', stiffness: 340, damping: 20, mass: 0.55 }} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
+                <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm ${mine ? 'bg-primary-500 text-white' : 'bg-white border border-gray-200 text-gray-800'}`}><p>{message.content}</p><p className={`mt-1 text-[10px] ${mine ? 'text-primary-100' : 'text-gray-400'}`}>{message.type}</p></div>
               </motion.div>
             );
           })}
         </div>
 
-        {!dmAtBottom && (
-          <button onClick={() => scrollToBottom('dm')} className="absolute bottom-36 right-4 z-30 h-10 w-10 rounded-full bg-white border border-gray-200 shadow-lg flex items-center justify-center text-gray-600">
-            <ChevronDown size={18} />
-          </button>
-        )}
+        {!dmAtBottom && <button onClick={() => scrollToBottom('dm')} className="absolute bottom-24 left-4 z-30 h-10 w-10 rounded-full bg-white/95 border border-gray-200 shadow-lg flex items-center justify-center text-gray-600"><ChevronDown size={18} /></button>}
 
-        <div className="absolute bottom-20 left-0 right-0 z-20" onClick={() => setDirectComposerOpen(true)}>
-          <ChatComposer isOpen={directComposerOpen} onReveal={() => setDirectComposerOpen(true)} onSend={({ content, type }) => sendDirectMessage(activeThread.id, { content, type: type as DirectMessage['type'] })} />
+        <div className="absolute bottom-0 left-0 right-0 z-20">
+          <ChatComposer isOpen={directComposerOpen} onReveal={() => setDirectComposerOpen(true)} onCollapse={() => setDirectComposerOpen(false)} onSend={({ content, type }) => sendDirectMessage(activeThread.id, { content, type: type as DirectMessage['type'] })} />
         </div>
 
         <AnimatePresence>
-          {showDirectDetails && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-50 flex items-end p-4">
-              <div className="absolute inset-0 bg-black/40" onClick={() => setShowDirectDetails(false)} />
-              <motion.div initial={{ y: 24 }} animate={{ y: 0 }} exit={{ y: 20 }} className="relative z-10 w-full rounded-3xl bg-white p-5 border border-gray-100 max-h-[70%] overflow-y-auto">
-                <h3 className="font-bold text-gray-900 mb-3">Chat details</h3>
-                <p className="text-xs text-gray-500 mb-2">Wallpaper</p>
-                <div className="flex gap-2 flex-wrap">
-                  {chatBackgrounds.map((bg) => (
-                    <button key={bg} onClick={() => setDirectChatBackground(activeThread.id, bg)} className={`h-8 w-8 rounded-full border ${bg}`} />
-                  ))}
-                </div>
-              </motion.div>
-            </motion.div>
-          )}
+          {showDirectDetails && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-50 flex items-end p-4"><div className="absolute inset-0 bg-black/40" onClick={() => setShowDirectDetails(false)} /><motion.div initial={{ y: 24 }} animate={{ y: 0 }} exit={{ y: 20 }} className="relative z-10 w-full rounded-3xl bg-white p-5 border border-gray-100 max-h-[70%] overflow-y-auto"><h3 className="font-bold text-gray-900 mb-3">Chat details</h3><p className="text-xs text-gray-500 mb-2">Wallpaper</p><div className="flex gap-2 flex-wrap">{chatBackgrounds.map((bg) => <button key={bg} onClick={() => setDirectChatBackground(activeThread.id, bg)} className={`h-8 w-8 rounded-full border ${bg}`} />)}</div></motion.div></motion.div>}
         </AnimatePresence>
       </motion.div>
     );
@@ -482,71 +480,51 @@ export default function Chats() {
     const background = groupChatBackgroundByGroupId[activeGroup.id] || 'bg-gray-50';
 
     return (
-      <motion.div
-        ref={groupScreenRef}
-        initial={{ opacity: 0, x: 20 }}
-        animate={{ opacity: 1, x: 0 }}
-        exit={{ opacity: 0, x: -16 }}
-        transition={{ type: 'spring', stiffness: 280, damping: 30 }}
-        className="relative max-w-md mx-auto min-h-screen flex flex-col bg-white pb-20 overflow-hidden"
-        onMouseMove={(e) => revealComposerOnEdge('group', e.clientY)}
-      >
+      <motion.div ref={groupScreenRef} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -16 }} transition={{ type: 'spring', stiffness: 280, damping: 30 }} className="relative max-w-md mx-auto min-h-screen flex flex-col bg-white overflow-hidden" onMouseMove={(e) => {
+        const rect = groupScreenRef.current?.getBoundingClientRect();
+        if (rect && e.clientY > rect.bottom - 46) setGroupComposerOpen(true);
+      }}>
         <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-gray-100 px-4 py-3 flex items-center gap-3">
           <button onClick={closeGroupChat} className="p-2 rounded-full hover:bg-gray-100"><ArrowLeft size={20} /></button>
-          <button onClick={() => selectGroup(activeGroup)} className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-200 to-pink-200 flex items-center justify-center text-xl">{activeGroup.avatar}</button>
+          <button onClick={() => setShowGroupDetails(true)} className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-200 to-pink-200 flex items-center justify-center text-xl">{activeGroup.avatar}</button>
           <div className="flex-1">
-            <button onClick={() => selectGroup(activeGroup)} className="font-bold text-gray-900 text-left">{activeGroup.name}</button>
-            <p className="text-xs text-gray-500">{activeGroup.isPrivate ? 'Private group' : 'Public group'} • {activeGroup.memberCount} members</p>
+            <button onClick={() => setShowGroupDetails(true)} className="font-bold text-gray-900 text-left">{activeGroup.name}</button>
+            <p className="text-xs text-gray-500">@{activeGroup.username} • {activeGroup.isPrivate ? 'Private group' : 'Public group'}</p>
           </div>
-          <button onClick={() => selectGroup(activeGroup)} className="p-2 rounded-full hover:bg-gray-100"><SlidersHorizontal size={18} className="text-gray-500" /></button>
+          <button onClick={() => setShowGroupDetails(true)} className="p-2 rounded-full hover:bg-gray-100"><SlidersHorizontal size={18} className="text-gray-500" /></button>
         </header>
 
         <div className="px-4 py-2 bg-white border-b border-gray-100">
           <p className="text-xs text-gray-500 flex items-center gap-1"><Shield size={12} />Rules: {activeGroup.rules || 'No rules yet.'}</p>
-          {isAdmin && (
-            <div className="mt-2 flex gap-2">
-              <button onClick={() => inviteMemberToGroup(activeGroup.id)} className="text-xs rounded-lg bg-gray-100 px-2 py-1">Invite member</button>
-              <button onClick={() => updateGroupMeta(activeGroup.id, { adminIdToAdd: 'u2' })} className="text-xs rounded-lg bg-gray-100 px-2 py-1">Assign co-admin</button>
-            </div>
-          )}
+          {isAdmin && <div className="mt-2 flex gap-2"><button onClick={() => inviteMemberToGroup(activeGroup.id)} className="text-xs rounded-lg bg-gray-100 px-2 py-1">Invite member</button><button onClick={() => updateGroupMeta(activeGroup.id, { adminIdToAdd: 'u2' })} className="text-xs rounded-lg bg-gray-100 px-2 py-1">Assign co-admin</button></div>}
         </div>
 
         <div ref={groupScrollRef} onScroll={(e) => {
           const el = e.currentTarget;
-          const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 48;
-          setGroupAtBottom(atBottom);
-        }} className={`flex-1 overflow-y-auto p-4 pb-40 space-y-3 ${background}`} onClick={(e) => {
+          setGroupAtBottom(el.scrollHeight - el.scrollTop - el.clientHeight < 48);
+        }} className={`flex-1 overflow-y-auto p-4 pb-48 space-y-3 ${background}`} onClick={(e) => {
           const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
-          if (e.clientY > rect.bottom - 120) setGroupComposerOpen(true);
+          if (e.clientY > rect.bottom - 90) setGroupComposerOpen(true);
         }}>
           {activeGroupMessages.map((message, index) => {
             const mine = message.senderId === user.id;
             return (
-              <motion.div
-                key={message.id}
-                initial={{ opacity: 0, y: 16, scale: 0.94 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                transition={{ delay: Math.min(index * 0.04, 0.25), type: 'spring', stiffness: 340, damping: 20, mass: 0.55 }}
-                className={`flex ${mine ? 'justify-end' : 'justify-start'}`}
-              >
-                <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm ${mine ? 'bg-primary-500 text-white' : 'bg-white border border-gray-200 text-gray-800'}`}>
-                  <p>{message.content}</p>
-                  <p className={`mt-1 text-[10px] ${mine ? 'text-primary-100' : 'text-gray-400'}`}>{message.type}</p>
-                </div>
+              <motion.div key={message.id} initial={{ opacity: 0, y: 16, scale: 0.94 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ delay: Math.min(index * 0.04, 0.25), type: 'spring', stiffness: 340, damping: 20, mass: 0.55 }} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
+                <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm ${mine ? 'bg-primary-500 text-white' : 'bg-white border border-gray-200 text-gray-800'}`}><p>{message.content}</p><p className={`mt-1 text-[10px] ${mine ? 'text-primary-100' : 'text-gray-400'}`}>{message.type}</p></div>
               </motion.div>
             );
           })}
         </div>
 
-        {!groupAtBottom && (
-          <button onClick={() => scrollToBottom('group')} className="absolute bottom-36 right-4 z-30 h-10 w-10 rounded-full bg-white border border-gray-200 shadow-lg flex items-center justify-center text-gray-600">
-            <ChevronDown size={18} />
-          </button>
-        )}
+        {!groupAtBottom && <button onClick={() => scrollToBottom('group')} className="absolute bottom-24 left-4 z-30 h-10 w-10 rounded-full bg-white/95 border border-gray-200 shadow-lg flex items-center justify-center text-gray-600"><ChevronDown size={18} /></button>}
 
-        <div className="absolute bottom-20 left-0 right-0 z-20" onClick={() => setGroupComposerOpen(true)}>
-          <ChatComposer isOpen={groupComposerOpen} onReveal={() => setGroupComposerOpen(true)} onSend={({ content, type }) => sendGroupMessage(activeGroup.id, { content, type: type as GroupMessage['type'] })} />
+        <div className="absolute bottom-0 left-0 right-0 z-20">
+          <ChatComposer isOpen={groupComposerOpen} onReveal={() => setGroupComposerOpen(true)} onCollapse={() => setGroupComposerOpen(false)} onSend={({ content, type }) => sendGroupMessage(activeGroup.id, { content, type: type as GroupMessage['type'] })} />
         </div>
+
+        <AnimatePresence>
+          {showGroupDetails && <GroupProfileSheet group={activeGroup} messages={activeGroupMessages} onClose={() => setShowGroupDetails(false)} onOpenStory={(storyId) => openStoryViewer(storyId)} />}
+        </AnimatePresence>
       </motion.div>
     );
   }
@@ -556,154 +534,33 @@ export default function Chats() {
       <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-gray-100">
         <div className="flex items-center justify-between px-4 py-3">
           <h1 className="text-xl font-bold text-gray-900">Chats</h1>
-          <button onClick={() => setShowCreateModal(true)} className="flex items-center gap-1 px-3 py-1.5 bg-primary-500 text-white rounded-full text-sm font-medium">
-            <Plus size={16} />
-            Create Group
-          </button>
+          <button onClick={() => setShowCreateModal(true)} className="flex items-center gap-1 px-3 py-1.5 bg-primary-500 text-white rounded-full text-sm font-medium"><Plus size={16} />Create Group</button>
         </div>
       </header>
 
       <div className="p-4 space-y-6">
         <div className="bg-white rounded-2xl p-3 shadow-card">
-          <div className="flex items-center gap-2 rounded-xl border border-gray-200 px-3 py-2">
-            <Search size={16} className="text-gray-400" />
-            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search profiles by name or @username" className="w-full bg-transparent text-sm focus:outline-none" />
-          </div>
-          {search.trim() && (
-            <div className="mt-3 space-y-2">
-              {filteredProfiles.length === 0 ? <p className="text-xs text-gray-500">No matching profiles.</p> : filteredProfiles.map((profile) => (
-                <button key={profile.id} onClick={() => openDirectThread(profile.id)} className="w-full rounded-xl border border-gray-100 p-2 flex items-center gap-3 hover:border-primary-200 hover:bg-primary-50/50 transition-colors">
-                  <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary-200 to-pink-200 flex items-center justify-center text-lg">{profile.avatar}</div>
-                  <div className="text-left flex-1">
-                    <p className="text-sm font-semibold text-gray-900">{profile.displayName}</p>
-                    <p className="text-xs text-gray-500">@{profile.username}</p>
-                  </div>
-                  <MessageCircle size={16} className="text-primary-500" />
-                </button>
-              ))}
-            </div>
-          )}
+          <div className="flex items-center gap-2 rounded-xl border border-gray-200 px-3 py-2"><Search size={16} className="text-gray-400" /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search profiles by name or @username" className="w-full bg-transparent text-sm focus:outline-none" /></div>
+          {search.trim() && <div className="mt-3 space-y-2">{filteredProfiles.length === 0 ? <p className="text-xs text-gray-500">No matching profiles.</p> : filteredProfiles.map((profile) => <button key={profile.id} onClick={() => openDirectThread(profile.id)} className="w-full rounded-xl border border-gray-100 p-2 flex items-center gap-3 hover:border-primary-200 hover:bg-primary-50/50 transition-colors"><div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary-200 to-pink-200 flex items-center justify-center text-lg">{profile.avatar}</div><div className="text-left flex-1"><p className="text-sm font-semibold text-gray-900">{profile.displayName}</p><p className="text-xs text-gray-500">@{profile.username}</p></div><MessageCircle size={16} className="text-primary-500" /></button>)}</div>}
         </div>
 
         <div>
           <h2 className="text-lg font-semibold text-gray-900 mb-3">Direct Messages</h2>
-          <div className="space-y-3">
-            {directConversations.length === 0 ? (
-              <p className="text-sm text-gray-500">No direct messages yet. Search a profile to start.</p>
-            ) : (
-              directConversations.map((item, index) => item && (
-                <motion.button key={item.thread.id} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.04 }} onClick={() => openDirectThread(item.profile.id)} className="w-full bg-white rounded-2xl p-4 shadow-card text-left">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary-200 to-pink-200 flex items-center justify-center text-xl">{item.profile.avatar}</div>
-                    <div className="flex-1">
-                      <p className="font-semibold text-gray-900">{item.profile.displayName}</p>
-                      <p className="text-xs text-gray-500 line-clamp-1">{item.lastMessage?.content || 'Start chatting'}</p>
-                    </div>
-                  </div>
-                </motion.button>
-              ))
-            )}
-          </div>
+          <div className="space-y-3">{directConversations.length === 0 ? <p className="text-sm text-gray-500">No direct messages yet. Search a profile to start.</p> : directConversations.map((item, index) => item && <motion.button key={item.thread.id} initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.04 }} onClick={() => openDirectThread(item.profile.id)} className="w-full bg-white rounded-2xl p-4 shadow-card text-left"><div className="flex items-center gap-3"><div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary-200 to-pink-200 flex items-center justify-center text-xl">{item.profile.avatar}</div><div className="flex-1"><p className="font-semibold text-gray-900">{item.profile.displayName}</p><p className="text-xs text-gray-500 line-clamp-1">{item.lastMessage?.content || 'Start chatting'}</p></div></div></motion.button>)}</div>
         </div>
 
         <div>
           <h2 className="text-lg font-semibold text-gray-900 mb-3">Groups</h2>
-          <div className="space-y-3">
-            {groups.map((group, index) => (
-              <motion.div key={group.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.05 }} onClick={() => openGroupChat(group.id)} className="bg-white rounded-2xl p-4 shadow-card cursor-pointer hover:shadow-card-hover transition-all">
-                <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary-200 to-pink-200 flex items-center justify-center text-2xl">{group.avatar}</div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-semibold text-gray-900">{group.name}</h3>
-                      {group.ownerId === user.id && <Crown className="text-yellow-500" size={14} />}
-                      {group.isPrivate && <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">Private</span>}
-                    </div>
-                    <p className="text-gray-500 text-sm line-clamp-1">{group.description}</p>
-
-                    <div className="flex items-center gap-3 mt-2 text-xs text-gray-400">
-                      <div className="flex items-center gap-1"><Users size={14} /><span>{group.memberCount}</span></div>
-                      <div className="flex items-center gap-1"><Award size={14} /><span>{group.challengesCreated}</span></div>
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-            ))}
-          </div>
+          <div className="space-y-3">{groups.map((group, index) => <motion.div key={group.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.05 }} onClick={() => openGroupChat(group.id)} className="bg-white rounded-2xl p-4 shadow-card cursor-pointer hover:shadow-card-hover transition-all"><div className="flex items-center gap-4"><div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary-200 to-pink-200 flex items-center justify-center text-2xl">{group.avatar}</div><div className="flex-1"><div className="flex items-center gap-2"><h3 className="font-semibold text-gray-900">{group.name}</h3>{group.ownerId === user.id && <Crown className="text-yellow-500" size={14} />}{group.isPrivate && <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">Private</span>}</div><p className="text-gray-500 text-sm line-clamp-1">{group.description}</p><p className="text-[11px] text-gray-400 mt-1">@{group.username} • {group.inviteCode}</p><div className="flex items-center gap-3 mt-2 text-xs text-gray-400"><div className="flex items-center gap-1"><Users size={14} /><span>{group.memberCount}</span></div><div className="flex items-center gap-1"><Award size={14} /><span>{group.challengesCreated}</span></div></div></div></div></motion.div>)}</div>
         </div>
       </div>
 
       <AnimatePresence>
-        {showCreateModal && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-50 flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowCreateModal(false)} />
-            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }} className="relative z-10 bg-white rounded-3xl p-6 w-full max-w-md max-h-[90%] overflow-y-auto">
-              <button onClick={() => setShowCreateModal(false)} className="absolute top-4 right-4 p-2 hover:bg-gray-100 rounded-full transition-colors"><X className="text-gray-400" size={20} /></button>
-              <h2 className="text-xl font-bold text-gray-900 mb-1">Create Group</h2>
-              <p className="text-sm text-gray-500 mb-4">Start a challenge-focused community.</p>
-
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Group name</label>
-                  <input value={groupName} onChange={(e) => setGroupName(e.target.value)} type="text" placeholder="Enter group name..." className="input-field" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
-                  <textarea value={groupDescription} onChange={(e) => setGroupDescription(e.target.value)} placeholder="What is this group about?" rows={3} className="input-field resize-none" />
-                </div>
-                <div className="flex items-center justify-between rounded-xl bg-gray-50 px-3 py-2">
-                  <span className="text-sm text-gray-600">Private group</span>
-                  <button onClick={() => setGroupPrivate((prev) => !prev)} className={`h-6 w-11 rounded-full transition-colors ${groupPrivate ? 'bg-primary-500' : 'bg-gray-300'}`}>
-                    <span className={`block h-5 w-5 bg-white rounded-full transition-transform ${groupPrivate ? 'translate-x-5' : 'translate-x-0.5'}`} />
-                  </button>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Basic rules (admin editable)</label>
-                  <textarea value={groupRules} onChange={(e) => setGroupRules(e.target.value)} rows={2} className="input-field resize-none" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Avatar</label>
-                  <div className="flex gap-2">
-                    {emojiChoices.map((emoji) => (
-                      <button key={emoji} onClick={() => setGroupAvatar(emoji)} className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl transition-colors ${groupAvatar === emoji ? 'bg-primary-100 text-primary-600' : 'bg-gray-100 hover:bg-primary-50'}`}>{emoji}</button>
-                    ))}
-                  </div>
-                </div>
-                {groupFeedback && <p className="text-xs text-primary-600">{groupFeedback}</p>}
-              </div>
-
-              <div className="flex gap-3 mt-6">
-                <button onClick={() => setShowCreateModal(false)} className="flex-1 py-3 rounded-xl bg-gray-100 text-gray-600 font-medium hover:bg-gray-200 transition-colors">Cancel</button>
-                <button onClick={handleCreateGroup} className="flex-1 py-3 rounded-xl bg-gradient-to-r from-primary-500 to-pink-500 text-white font-medium shadow-glow-pink">Create</button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
+        {showCreateModal && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-50 flex items-center justify-center p-4"><div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowCreateModal(false)} /><motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }} className="relative z-10 bg-white rounded-3xl p-6 w-full max-w-md max-h-[90%] overflow-y-auto"><button onClick={() => setShowCreateModal(false)} className="absolute top-4 right-4 p-2 hover:bg-gray-100 rounded-full transition-colors"><X className="text-gray-400" size={20} /></button><h2 className="text-xl font-bold text-gray-900 mb-1">Create Group</h2><p className="text-sm text-gray-500 mb-4">Start a challenge-focused community.</p><div className="space-y-4"><div><label className="block text-sm font-medium text-gray-700 mb-2">Group name</label><input value={groupName} onChange={(e) => { setGroupName(e.target.value); if (!groupUsername) setGroupUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 20)); }} type="text" placeholder="Enter group name..." className="input-field" /></div><div><label className="block text-sm font-medium text-gray-700 mb-2">Group username</label><input value={groupUsername} onChange={(e) => setGroupUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))} type="text" placeholder="example: studycrew" className="input-field" /><p className="mt-1 text-[11px] text-gray-400">3-20 chars, lowercase letters/numbers/underscore.</p></div><div><label className="block text-sm font-medium text-gray-700 mb-2">Description</label><textarea value={groupDescription} onChange={(e) => setGroupDescription(e.target.value)} placeholder="What is this group about?" rows={3} className="input-field resize-none" /></div><div className="flex items-center justify-between rounded-xl bg-gray-50 px-3 py-2"><span className="text-sm text-gray-600">Private group</span><button onClick={() => setGroupPrivate((prev) => !prev)} className={`h-6 w-11 rounded-full transition-colors ${groupPrivate ? 'bg-primary-500' : 'bg-gray-300'}`}><span className={`block h-5 w-5 bg-white rounded-full transition-transform ${groupPrivate ? 'translate-x-5' : 'translate-x-0.5'}`} /></button></div><div><label className="block text-sm font-medium text-gray-700 mb-2">Basic rules (admin editable)</label><textarea value={groupRules} onChange={(e) => setGroupRules(e.target.value)} rows={2} className="input-field resize-none" /></div><div><label className="block text-sm font-medium text-gray-700 mb-2">Avatar</label><div className="flex gap-2">{emojiChoices.map((emoji) => <button key={emoji} onClick={() => setGroupAvatar(emoji)} className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl transition-colors ${groupAvatar === emoji ? 'bg-primary-100 text-primary-600' : 'bg-gray-100 hover:bg-primary-50'}`}>{emoji}</button>)}</div></div>{groupFeedback && <p className="text-xs text-primary-600">{groupFeedback}</p>}</div><div className="flex gap-3 mt-6"><button onClick={() => setShowCreateModal(false)} className="flex-1 py-3 rounded-xl bg-gray-100 text-gray-600 font-medium hover:bg-gray-200 transition-colors">Cancel</button><button onClick={handleCreateGroup} className="flex-1 py-3 rounded-xl bg-gradient-to-r from-primary-500 to-pink-500 text-white font-medium shadow-glow-pink">Create</button></div></motion.div></motion.div>}
       </AnimatePresence>
 
       <AnimatePresence>
-        {selectedGroup && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-50 flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => selectGroup(null)} />
-            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }} className="relative z-10 bg-white rounded-3xl p-6 w-full max-w-md max-h-[90%] overflow-y-auto">
-              <div className="flex items-center gap-4 mb-6">
-                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary-200 to-pink-200 flex items-center justify-center text-3xl">{selectedGroup.avatar}</div>
-                <div>
-                  <h2 className="text-xl font-bold text-gray-900">{selectedGroup.name}</h2>
-                  <p className="text-gray-500 text-sm">{selectedGroup.memberCount} participants</p>
-                </div>
-              </div>
-              <p className="text-gray-600 mb-3">{selectedGroup.description}</p>
-              <p className="text-xs text-gray-500 mb-2">Wallpaper</p>
-              <div className="flex gap-2 mb-6 flex-wrap">
-                {chatBackgrounds.map((bg) => (
-                  <button key={bg} onClick={() => setGroupChatBackground(selectedGroup.id, bg)} className={`h-8 w-8 rounded-full border ${bg}`} />
-                ))}
-              </div>
-              <button onClick={() => openGroupChat(selectedGroup.id)} className="w-full py-3 rounded-xl bg-gradient-to-r from-primary-500 to-pink-500 text-white font-medium">Open Group Chat</button>
-            </motion.div>
-          </motion.div>
-        )}
+        {selectedGroup && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-50 flex items-center justify-center p-4"><div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => selectGroup(null)} /><motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }} className="relative z-10 bg-white rounded-3xl p-6 w-full max-w-md max-h-[90%] overflow-y-auto"><div className="flex items-center gap-4 mb-6"><div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary-200 to-pink-200 flex items-center justify-center text-3xl">{selectedGroup.avatar}</div><div><h2 className="text-xl font-bold text-gray-900">{selectedGroup.name}</h2><p className="text-gray-500 text-sm">@{selectedGroup.username} • {selectedGroup.inviteCode}</p></div></div><p className="text-gray-600 mb-3">{selectedGroup.description}</p><p className="text-xs text-gray-500 mb-2">Wallpaper</p><div className="flex gap-2 mb-6 flex-wrap">{chatBackgrounds.map((bg) => <button key={bg} onClick={() => setGroupChatBackground(selectedGroup.id, bg)} className={`h-8 w-8 rounded-full border ${bg}`} />)}</div><button onClick={() => openGroupChat(selectedGroup.id)} className="w-full py-3 rounded-xl bg-gradient-to-r from-primary-500 to-pink-500 text-white font-medium">Open Group Chat</button></motion.div></motion.div>}
       </AnimatePresence>
     </motion.div>
   );
