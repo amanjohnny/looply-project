@@ -10,6 +10,7 @@ import type {
   CaseType,
   RewardType,
   PostComment,
+  CommentReport,
 } from '../types';
 
 interface AppState {
@@ -37,6 +38,8 @@ interface AppState {
   likedPostIds: string[];
   commentsByPost: Record<string, PostComment[]>;
   activeCommentPostId: string | null;
+  blockedUserIds: string[];
+  reports: CommentReport[];
 
   // Collectibles
   collectibles: Collectible[];
@@ -61,7 +64,10 @@ interface AppState {
   completeChallenge: (challengeId: string) => void;
   addPost: (post: UserPost) => void;
   togglePostLike: (postId: string) => void;
-  addComment: (postId: string, content: string) => void;
+  addComment: (postId: string, content: string) => { ok: boolean; error?: string };
+  deleteComment: (postId: string, commentId: string) => void;
+  reportComment: (commentId: string, reason?: string) => void;
+  blockUser: (userId: string) => void;
   openComments: (postId: string) => void;
   closeComments: () => void;
   openCase: (caseType: CaseType, casePrice: number) => CaseReward[] | null;
@@ -195,6 +201,22 @@ const pickRarity = (): Rarity => {
   return 'legendary';
 };
 
+const bannedWords = ['hate', 'idiot', 'stupid', 'kill'];
+
+const sanitizeComment = (text: string) => {
+  let hasToxic = false;
+  const sanitized = text.replace(/\b([a-zA-Z]+)\b/g, (word) => {
+    const hit = bannedWords.includes(word.toLowerCase());
+    if (hit) {
+      hasToxic = true;
+      return '***';
+    }
+    return word;
+  });
+  return { sanitized, hasToxic };
+};
+
+
 export const useAppStore = create<AppState>((set, get) => ({
   isAuthenticated: false,
   authView: 'login',
@@ -225,6 +247,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   likedPostIds: [],
   commentsByPost: mockCommentsByPost,
   activeCommentPostId: null,
+  blockedUserIds: [],
+  reports: [],
   collectibles: [],
   caseOpening: false,
   lastOpenRewards: [],
@@ -271,7 +295,9 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   addComment: (postId, content) => {
     const trimmed = content.trim();
-    if (!trimmed) return;
+    if (!trimmed) return { ok: false, error: 'Comment cannot be empty.' };
+
+    const { sanitized, hasToxic } = sanitizeComment(trimmed);
 
     set((state) => {
       const nextComment: PostComment = {
@@ -280,7 +306,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         userId: state.user.id,
         username: state.user.displayName,
         userAvatar: state.user.avatar,
-        content: trimmed,
+        content: sanitized,
         timestamp: new Date(),
       };
 
@@ -292,7 +318,48 @@ export const useAppStore = create<AppState>((set, get) => ({
         posts: state.posts.map((p) => (p.id === postId ? { ...p, comments: p.comments + 1 } : p)),
       };
     });
+
+    return hasToxic
+      ? { ok: true, error: 'Some words were filtered for safety.' }
+      : { ok: true };
   },
+
+  deleteComment: (postId, commentId) =>
+    set((state) => {
+      const before = state.commentsByPost[postId] || [];
+      const next = before.filter((comment) => comment.id !== commentId);
+      if (before.length === next.length) return {};
+
+      return {
+        commentsByPost: {
+          ...state.commentsByPost,
+          [postId]: next,
+        },
+        posts: state.posts.map((p) =>
+          p.id === postId ? { ...p, comments: Math.max(0, p.comments - 1) } : p,
+        ),
+      };
+    }),
+
+  reportComment: (commentId, reason = 'abuse') =>
+    set((state) => ({
+      reports: [
+        ...state.reports,
+        {
+          commentId,
+          reason,
+          reportedBy: state.user.id,
+          createdAt: new Date(),
+        },
+      ],
+    })),
+
+  blockUser: (userId) =>
+    set((state) => ({
+      blockedUserIds: state.blockedUserIds.includes(userId)
+        ? state.blockedUserIds
+        : [...state.blockedUserIds, userId],
+    })),
 
   openComments: (postId) => set({ activeCommentPostId: postId, currentPage: 'comments' }),
 

@@ -30,6 +30,13 @@ export interface Challenge {
   proofRequired: boolean;
 }
 
+export interface CommentReport {
+  commentId: string;
+  reason: string;
+  reportedBy: string;
+  createdAt: Date;
+}
+
 export interface PostComment {
   id: string;
   postId: string;

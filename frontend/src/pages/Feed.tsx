@@ -23,18 +23,6 @@ export default function Feed() {
     setSavedPosts((prev) => (prev.includes(postId) ? prev.filter((id) => id !== postId) : [...prev, postId]));
   };
 
-  const handleCommentSubmit = (postId: string) => {
-    const draft = commentDrafts[postId] || '';
-    if (!draft.trim()) return;
-
-    addComment(postId, draft);
-    setCommentDrafts((prev) => ({ ...prev, [postId]: '' }));
-
-    if (!expandedComments.includes(postId)) {
-      setExpandedComments((prev) => [...prev, postId]);
-    }
-  };
-
   const toggleComments = (postId: string) => {
     setExpandedComments((prev) =>
       prev.includes(postId) ? prev.filter((id) => id !== postId) : [...prev, postId],
