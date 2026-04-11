@@ -1,27 +1,25 @@
 import { useAppStore } from './store/useAppStore';
 import { AnimatePresence, motion } from 'framer-motion';
 
-// Pages
 import Auth from './pages/Auth';
 import Feed from './pages/Feed';
-import Cases from './pages/Cases';
 import Profile from './pages/Profile';
-import Challenges from './pages/Challenges';
 import Groups from './pages/Groups';
 import UserProfile from './pages/UserProfile';
 import EditProfile from './pages/EditProfile';
 import Settings from './pages/Settings';
 import Comments from './pages/Comments';
 import StoryViewer from './pages/StoryViewer';
+import Create from './pages/Create';
+import Missions from './pages/Missions';
 
-// Icons
-import { Home, Box, User, List, Users } from 'lucide-react';
+import { Home, User, MessageCircle, PlusSquare, Trophy } from 'lucide-react';
 
 const navItems = [
-  { id: 'feed', icon: Home, label: 'Home' },
-  { id: 'challenges', icon: List, label: 'Tasks' },
-  { id: 'cases', icon: Box, label: 'Cases' },
-  { id: 'groups', icon: Users, label: 'Groups' },
+  { id: 'feed', icon: Home, label: 'Feed' },
+  { id: 'missions', icon: Trophy, label: 'Missions' },
+  { id: 'create', icon: PlusSquare, label: '+' },
+  { id: 'groups', icon: MessageCircle, label: 'Chats' },
   { id: 'profile', icon: User, label: 'Profile' },
 ];
 
@@ -34,18 +32,16 @@ const pageVariants = {
 function App() {
   const { currentPage, isAuthenticated, setCurrentPage, storyViewerOpen } = useAppStore();
 
-  if (!isAuthenticated) {
-    return <Auth />;
-  }
+  if (!isAuthenticated) return <Auth />;
 
   const renderPage = () => {
     switch (currentPage) {
       case 'feed':
         return <Feed />;
-      case 'challenges':
-        return <Challenges />;
-      case 'cases':
-        return <Cases />;
+      case 'missions':
+        return <Missions />;
+      case 'create':
+        return <Create />;
       case 'groups':
         return <Groups />;
       case 'profile':
@@ -97,9 +93,7 @@ function App() {
               <button
                 key={item.id}
                 onClick={() => setCurrentPage(item.id)}
-                className={`relative flex flex-col items-center gap-1 p-2 rounded-2xl transition-all duration-200 ${
-                  isActive ? 'text-primary-500' : 'text-gray-400 hover:text-gray-600'
-                }`}
+                className={`relative flex flex-col items-center gap-1 p-2 rounded-2xl transition-all duration-200 ${isActive ? 'text-primary-500' : 'text-gray-400 hover:text-gray-600'}`}
               >
                 {isActive && (
                   <motion.div
@@ -109,10 +103,7 @@ function App() {
                     transition={{ type: 'spring', stiffness: 500, damping: 30 }}
                   />
                 )}
-                <Icon
-                  size={22}
-                  className={`relative z-10 transition-transform duration-200 ${isActive ? 'scale-110' : ''}`}
-                />
+                <Icon size={22} className={`relative z-10 transition-transform duration-200 ${isActive ? 'scale-110' : ''}`} />
                 <span className="text-[10px] relative z-10 font-medium">{item.label}</span>
               </button>
             );

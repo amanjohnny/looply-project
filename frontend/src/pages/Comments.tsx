@@ -44,6 +44,7 @@ export default function Comments() {
   }
 
   const isLiked = likedPostIds.includes(post.id);
+  const postAuthorId = post.userId;
 
   const handleSubmit = () => {
     const result = addComment(post.id, draft);
@@ -103,13 +104,18 @@ export default function Comments() {
           ) : (
             comments.map((comment) => {
               const isOwn = comment.userId === user.id;
+              const isPostAuthor = comment.userId === postAuthorId;
+              const canDelete = isOwn || user.id === postAuthorId;
               const menuOpen = activeMenuCommentId === comment.id;
 
               return (
                 <div key={comment.id} className="relative flex items-start gap-2 pb-3 border-b border-gray-100 last:border-b-0 last:pb-0">
                   <span className="text-xl leading-none">{comment.userAvatar}</span>
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold text-gray-900 break-words">{comment.username}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-xs font-semibold text-gray-900 break-words">{comment.username}</p>
+                      {isPostAuthor && <span className="rounded-full bg-primary-100 px-2 py-0.5 text-[10px] font-semibold text-primary-600">Author</span>}
+                    </div>
                     <p className="text-sm text-gray-700 leading-relaxed break-words [overflow-wrap:anywhere]">{comment.content}</p>
                   </div>
                   <button
@@ -122,7 +128,7 @@ export default function Comments() {
 
                   {menuOpen && (
                     <div className="absolute right-0 top-7 z-20 min-w-[150px] rounded-xl border border-gray-100 bg-white shadow-lg p-1">
-                      {isOwn && (
+                      {canDelete && (
                         <button onClick={() => handleDelete(comment.id)} className="w-full text-left px-3 py-2 text-sm rounded-lg text-red-600 hover:bg-red-50">
                           Delete
                         </button>
