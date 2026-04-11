@@ -18,7 +18,7 @@ import { Home, User, MessageCircle, PlusSquare, Trophy } from 'lucide-react';
 const navItems = [
   { id: 'feed', icon: Home, label: 'Feed' },
   { id: 'missions', icon: Trophy, label: 'Missions' },
-  { id: 'create', icon: PlusSquare, label: '+' },
+  { id: 'create', icon: PlusSquare, label: 'Create' },
   { id: 'groups', icon: MessageCircle, label: 'Chats' },
   { id: 'profile', icon: User, label: 'Profile' },
 ];

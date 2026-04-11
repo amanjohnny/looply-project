@@ -12,6 +12,8 @@ import type {
   PostComment,
   CommentReport,
   Story,
+  DirectThread,
+  DirectMessage,
 } from '../types';
 
 interface AppState {
@@ -52,12 +54,15 @@ interface AppState {
   // Groups
   groups: Group[];
   selectedGroup: Group | null;
+  directThreads: DirectThread[];
+  activeDirectThreadId: string | null;
   communityUsers: User[];
   selectedUser: User | null;
   userCollectibleShowcase: Record<string, Collectible[]>;
 
   // Navigation
   currentPage: string;
+  missionsTab: 'tasks' | 'rewards';
 
   // Actions
   setAuthView: (view: 'login' | 'register') => void;
@@ -79,6 +84,10 @@ interface AppState {
   setLastOpenRewards: (rewards: CaseReward[]) => void;
   addCollectible: (collectible: Collectible) => void;
   selectGroup: (group: Group | null) => void;
+  createGroup: (payload: { name: string; description: string; avatar: string }) => { ok: boolean; error?: string };
+  openDirectThread: (userId: string) => void;
+  closeDirectThread: () => void;
+  sendDirectMessage: (threadId: string, payload: { content: string; type: DirectMessage['type'] }) => { ok: boolean; error?: string };
   openUserProfile: (userId: string) => void;
   openEditProfile: () => void;
   openSettings: () => void;
@@ -91,6 +100,7 @@ interface AppState {
   closeStoryViewer: () => void;
   nextStory: () => void;
   prevStory: () => void;
+  setMissionsTab: (tab: 'tasks' | 'rewards') => void;
 }
 
 const mockCollectibles: Collectible[] = [
@@ -143,6 +153,18 @@ const mockGroups: Group[] = [
   { id: '2', name: 'Math Wizards', description: 'For those who love mathematics', avatar: '➗', memberCount: 89, challengesCreated: 32, ownerId: 'u2' },
   { id: '3', name: 'Book Lovers', description: 'Reading and sharing great books', avatar: '📖', memberCount: 234, challengesCreated: 67, ownerId: 'u3' },
   { id: '4', name: 'Science Club', description: 'Explore the wonders of science', avatar: '🔬', memberCount: 178, challengesCreated: 54, ownerId: 'u4' },
+];
+
+const mockDirectThreads: DirectThread[] = [
+  {
+    id: 'dm-u1-u2',
+    participantIds: ['u1', 'u2'],
+    updatedAt: new Date(Date.now() - 2400000),
+    messages: [
+      { id: 'dm1', threadId: 'dm-u1-u2', senderId: 'u2', type: 'text', content: 'Finished your math challenge yet?', createdAt: new Date(Date.now() - 3000000) },
+      { id: 'dm2', threadId: 'dm-u1-u2', senderId: 'u1', type: 'emoji', content: '✅📚', createdAt: new Date(Date.now() - 2400000) },
+    ],
+  },
 ];
 
 const mockCommunityUsers: User[] = [
@@ -263,10 +285,13 @@ export const useAppStore = create<AppState>((set, get) => ({
   lastOpenRewards: [],
   groups: mockGroups,
   selectedGroup: null,
+  directThreads: mockDirectThreads,
+  activeDirectThreadId: null,
   communityUsers: mockCommunityUsers,
   selectedUser: null,
   userCollectibleShowcase: { ...mockCollectibleShowcase, u1: [] },
   currentPage: 'login',
+  missionsTab: 'tasks',
 
   setAuthView: (view) => set({ authView: view }),
 
@@ -275,6 +300,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   logout: () => set({ isAuthenticated: false, currentPage: 'login' }),
 
   setCurrentPage: (page) => set({ currentPage: page }),
+  setMissionsTab: (tab) => set({ missionsTab: tab }),
 
   completeChallenge: (challengeId) => {
     const challenge = get().challenges.find((c) => c.id === challengeId);
@@ -484,6 +510,75 @@ export const useAppStore = create<AppState>((set, get) => ({
     })),
 
   selectGroup: (group) => set({ selectedGroup: group }),
+
+  createGroup: ({ name, description, avatar }) => {
+    const groupName = name.trim();
+    const groupDescription = description.trim();
+    if (!groupName) return { ok: false, error: 'Group name is required.' };
+
+    set((state) => ({
+      groups: [
+        {
+          id: `g-${Date.now()}`,
+          name: groupName,
+          description: groupDescription || 'New Looply group',
+          avatar: avatar || '👥',
+          memberCount: 1,
+          challengesCreated: 0,
+          ownerId: state.user.id,
+        },
+        ...state.groups,
+      ],
+    }));
+
+    return { ok: true };
+  },
+
+  openDirectThread: (userId) =>
+    set((state) => {
+      if (userId === state.user.id) return {};
+      const existing = state.directThreads.find((thread) => thread.participantIds.includes(state.user.id) && thread.participantIds.includes(userId));
+      if (existing) return { activeDirectThreadId: existing.id };
+
+      const thread: DirectThread = {
+        id: `dm-${state.user.id}-${userId}-${Date.now()}`,
+        participantIds: [state.user.id, userId],
+        messages: [],
+        updatedAt: new Date(),
+      };
+      return {
+        directThreads: [thread, ...state.directThreads],
+        activeDirectThreadId: thread.id,
+      };
+    }),
+
+  closeDirectThread: () => set({ activeDirectThreadId: null }),
+
+  sendDirectMessage: (threadId, payload) => {
+    const trimmed = payload.content.trim();
+    if (!trimmed) return { ok: false, error: 'Message cannot be empty.' };
+
+    set((state) => {
+      const now = new Date();
+      const threads = state.directThreads.map((thread) => {
+        if (thread.id !== threadId) return thread;
+        const message: DirectMessage = {
+          id: `${threadId}-${Date.now()}`,
+          threadId,
+          senderId: state.user.id,
+          type: payload.type,
+          content: trimmed,
+          createdAt: now,
+        };
+        return { ...thread, updatedAt: now, messages: [...thread.messages, message] };
+      });
+      return {
+        directThreads: threads.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime()),
+      };
+    });
+
+    return { ok: true };
+  },
 
   openUserProfile: (userId) =>
     set((state) => {
