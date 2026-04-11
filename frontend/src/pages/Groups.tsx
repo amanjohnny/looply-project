@@ -67,7 +67,7 @@ function ChatComposer({ isOpen, onReveal, onCollapse, onSend }: ChatComposerProp
     }
   };
 
-  const scheduleCollapse = (delay = 1200) => {
+  const scheduleCollapse = (delay = 450) => {
     if (collapseTimer.current) window.clearTimeout(collapseTimer.current);
     collapseTimer.current = window.setTimeout(() => {
       if (!isFocused && !showAttachMenu) onCollapse();
@@ -100,7 +100,7 @@ function ChatComposer({ isOpen, onReveal, onCollapse, onSend }: ChatComposerProp
     setStagedAttachment(null);
     setHelper('Sent');
     keepOpen();
-    scheduleCollapse(1800);
+    scheduleCollapse(1100);
   };
 
   const onActionDown = () => {
@@ -337,11 +337,15 @@ export default function Chats() {
   const [groupComposerOpen, setGroupComposerOpen] = useState(false);
   const [dmAtBottom, setDmAtBottom] = useState(true);
   const [groupAtBottom, setGroupAtBottom] = useState(true);
+  const [dmUnreadCount, setDmUnreadCount] = useState(0);
+  const [groupUnreadCount, setGroupUnreadCount] = useState(0);
 
   const dmScreenRef = useRef<HTMLDivElement | null>(null);
   const groupScreenRef = useRef<HTMLDivElement | null>(null);
   const dmScrollRef = useRef<HTMLDivElement | null>(null);
   const groupScrollRef = useRef<HTMLDivElement | null>(null);
+  const dmPrevCount = useRef(0);
+  const groupPrevCount = useRef(0);
 
   const filteredProfiles = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -390,6 +394,8 @@ export default function Chats() {
       setTimeout(() => scrollToBottom('dm'), 0);
       setDirectComposerOpen(false);
       setShowDirectDetails(false);
+      setDmUnreadCount(0);
+      dmPrevCount.current = activeThread.messages.length;
     }
   }, [activeThread?.id]);
 
@@ -398,8 +404,31 @@ export default function Chats() {
       setTimeout(() => scrollToBottom('group'), 0);
       setGroupComposerOpen(false);
       setShowGroupDetails(false);
+      setGroupUnreadCount(0);
+      groupPrevCount.current = activeGroupMessages.length;
     }
   }, [activeGroup?.id]);
+
+
+  useEffect(() => {
+    if (!activeThread) return;
+    const nextLen = activeThread.messages.length;
+    const delta = Math.max(0, nextLen - dmPrevCount.current);
+    if (!dmAtBottom && delta > 0) {
+      setDmUnreadCount((prev) => Math.min(999, prev + delta));
+    }
+    dmPrevCount.current = nextLen;
+  }, [activeThread?.messages.length, dmAtBottom]);
+
+  useEffect(() => {
+    if (!activeGroup) return;
+    const nextLen = activeGroupMessages.length;
+    const delta = Math.max(0, nextLen - groupPrevCount.current);
+    if (!groupAtBottom && delta > 0) {
+      setGroupUnreadCount((prev) => Math.min(999, prev + delta));
+    }
+    groupPrevCount.current = nextLen;
+  }, [activeGroupMessages.length, groupAtBottom, activeGroup]);
 
   const handleCreateGroup = () => {
     const result = createGroup({ name: groupName, description: groupDescription, avatar: groupAvatar, username: groupUsername });
@@ -446,8 +475,10 @@ export default function Chats() {
 
         <div ref={dmScrollRef} onScroll={(e) => {
           const el = e.currentTarget;
-          setDmAtBottom(el.scrollHeight - el.scrollTop - el.clientHeight < 48);
-        }} className={`flex-1 overflow-y-auto p-4 pb-48 space-y-3 transition-colors ${background}`} onClick={(e) => {
+          const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 48;
+          setDmAtBottom(atBottom);
+          if (atBottom) setDmUnreadCount(0);
+        }} className={`flex-1 overflow-y-auto p-4 pb-40 space-y-3 transition-colors ${background}`} onClick={(e) => {
           const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
           if (e.clientY > rect.bottom - 90) setDirectComposerOpen(true);
         }}>
@@ -455,16 +486,16 @@ export default function Chats() {
           {activeThread.messages.map((message, index) => {
             const mine = message.senderId === user.id;
             return (
-              <motion.div key={message.id} initial={{ opacity: 0, y: 16, scale: 0.94 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ delay: Math.min(index * 0.04, 0.25), type: 'spring', stiffness: 340, damping: 20, mass: 0.55 }} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
+              <motion.div key={message.id} initial={{ opacity: 0, y: 22, scale: 0.9 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ delay: Math.min(index * 0.05, 0.28), type: 'spring', stiffness: 300, damping: 17, mass: 0.62 }} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm ${mine ? 'bg-primary-500 text-white' : 'bg-white border border-gray-200 text-gray-800'}`}><p>{message.content}</p><p className={`mt-1 text-[10px] ${mine ? 'text-primary-100' : 'text-gray-400'}`}>{message.type}</p></div>
               </motion.div>
             );
           })}
         </div>
 
-        {!dmAtBottom && <button onClick={() => scrollToBottom('dm')} className="absolute bottom-24 left-4 z-30 h-10 w-10 rounded-full bg-white/95 border border-gray-200 shadow-lg flex items-center justify-center text-gray-600"><ChevronDown size={18} /></button>}
+        {!dmAtBottom && <button onClick={() => { scrollToBottom('dm'); setDmUnreadCount(0); }} className="absolute bottom-24 left-4 z-30 h-10 w-10 rounded-full bg-white/95 border border-gray-200 shadow-lg flex items-center justify-center text-gray-600"><ChevronDown size={18} />{dmUnreadCount > 0 && <span className="absolute -top-1 -right-1 min-w-[18px] px-1 h-[18px] rounded-full bg-primary-500 text-white text-[10px] leading-[18px] text-center">{dmUnreadCount > 99 ? '99+' : dmUnreadCount}</span>}</button>}
 
-        <div className="absolute bottom-0 left-0 right-0 z-20">
+        <div className="absolute bottom-0 left-0 right-0 z-20 bg-white">
           <ChatComposer isOpen={directComposerOpen} onReveal={() => setDirectComposerOpen(true)} onCollapse={() => setDirectComposerOpen(false)} onSend={({ content, type }) => sendDirectMessage(activeThread.id, { content, type: type as DirectMessage['type'] })} />
         </div>
 
@@ -501,24 +532,26 @@ export default function Chats() {
 
         <div ref={groupScrollRef} onScroll={(e) => {
           const el = e.currentTarget;
-          setGroupAtBottom(el.scrollHeight - el.scrollTop - el.clientHeight < 48);
-        }} className={`flex-1 overflow-y-auto p-4 pb-48 space-y-3 ${background}`} onClick={(e) => {
+          const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 48;
+          setGroupAtBottom(atBottom);
+          if (atBottom) setGroupUnreadCount(0);
+        }} className={`flex-1 overflow-y-auto p-4 pb-40 space-y-3 ${background}`} onClick={(e) => {
           const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
           if (e.clientY > rect.bottom - 90) setGroupComposerOpen(true);
         }}>
           {activeGroupMessages.map((message, index) => {
             const mine = message.senderId === user.id;
             return (
-              <motion.div key={message.id} initial={{ opacity: 0, y: 16, scale: 0.94 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ delay: Math.min(index * 0.04, 0.25), type: 'spring', stiffness: 340, damping: 20, mass: 0.55 }} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
+              <motion.div key={message.id} initial={{ opacity: 0, y: 22, scale: 0.9 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ delay: Math.min(index * 0.05, 0.28), type: 'spring', stiffness: 300, damping: 17, mass: 0.62 }} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm ${mine ? 'bg-primary-500 text-white' : 'bg-white border border-gray-200 text-gray-800'}`}><p>{message.content}</p><p className={`mt-1 text-[10px] ${mine ? 'text-primary-100' : 'text-gray-400'}`}>{message.type}</p></div>
               </motion.div>
             );
           })}
         </div>
 
-        {!groupAtBottom && <button onClick={() => scrollToBottom('group')} className="absolute bottom-24 left-4 z-30 h-10 w-10 rounded-full bg-white/95 border border-gray-200 shadow-lg flex items-center justify-center text-gray-600"><ChevronDown size={18} /></button>}
+        {!groupAtBottom && <button onClick={() => { scrollToBottom('group'); setGroupUnreadCount(0); }} className="absolute bottom-24 left-4 z-30 h-10 w-10 rounded-full bg-white/95 border border-gray-200 shadow-lg flex items-center justify-center text-gray-600"><ChevronDown size={18} />{groupUnreadCount > 0 && <span className="absolute -top-1 -right-1 min-w-[18px] px-1 h-[18px] rounded-full bg-primary-500 text-white text-[10px] leading-[18px] text-center">{groupUnreadCount > 99 ? '99+' : groupUnreadCount}</span>}</button>}
 
-        <div className="absolute bottom-0 left-0 right-0 z-20">
+        <div className="absolute bottom-0 left-0 right-0 z-20 bg-white">
           <ChatComposer isOpen={groupComposerOpen} onReveal={() => setGroupComposerOpen(true)} onCollapse={() => setGroupComposerOpen(false)} onSend={({ content, type }) => sendGroupMessage(activeGroup.id, { content, type: type as GroupMessage['type'] })} />
         </div>
 
