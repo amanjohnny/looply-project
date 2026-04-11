@@ -6,6 +6,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 export default function Feed() {
   const { posts, stories, togglePostLike, markStoryViewed, setCurrentPage, openUserProfile, likedPostIds, openComments } = useAppStore();
   const [savedPosts, setSavedPosts] = useState<string[]>([]);
+  const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
+  const [expandedComments, setExpandedComments] = useState<string[]>([]);
 
   const formatTime = (date: Date) => {
     const now = new Date();
@@ -19,6 +21,12 @@ export default function Feed() {
 
   const handleSave = (postId: string) => {
     setSavedPosts((prev) => (prev.includes(postId) ? prev.filter((id) => id !== postId) : [...prev, postId]));
+  };
+
+  const toggleComments = (postId: string) => {
+    setExpandedComments((prev) =>
+      prev.includes(postId) ? prev.filter((id) => id !== postId) : [...prev, postId],
+    );
   };
 
   return (
