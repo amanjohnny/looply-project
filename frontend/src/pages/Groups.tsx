@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import type { DirectMessage, GroupMessage } from '../types';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -18,8 +18,9 @@ import {
   Mic,
   Video,
   Send,
-  Palette,
   Shield,
+  ChevronDown,
+  SlidersHorizontal,
 } from 'lucide-react';
 
 const emojiChoices = ['📚', '🧠', '🎯', '💬', '🚀', '🎨'];
@@ -29,15 +30,18 @@ type ComposerMode = 'audio' | 'video';
 type OutgoingMessageType = DirectMessage['type'] | GroupMessage['type'];
 
 interface ChatComposerProps {
+  isOpen: boolean;
+  onReveal: () => void;
   onSend: (payload: { content: string; type: OutgoingMessageType }) => void;
 }
 
-function ChatComposer({ onSend }: ChatComposerProps) {
+function ChatComposer({ isOpen, onReveal, onSend }: ChatComposerProps) {
   const [value, setValue] = useState('');
   const [showAttachMenu, setShowAttachMenu] = useState(false);
   const [mode, setMode] = useState<ComposerMode>('audio');
   const [recording, setRecording] = useState(false);
-  const timerRef = useRef<number | null>(null);
+  const holdTimer = useRef<number | null>(null);
+  const longPressActive = useRef(false);
 
   const send = (type: OutgoingMessageType, content: string) => {
     onSend({ type, content });
@@ -45,28 +49,41 @@ function ChatComposer({ onSend }: ChatComposerProps) {
     setShowAttachMenu(false);
   };
 
-  const onRecordStart = () => {
-    timerRef.current = window.setTimeout(() => {
+  const onActionDown = () => {
+    longPressActive.current = false;
+    holdTimer.current = window.setTimeout(() => {
+      longPressActive.current = true;
       setRecording(true);
     }, 260);
   };
 
-  const onRecordEnd = () => {
-    if (timerRef.current) {
-      window.clearTimeout(timerRef.current);
-      timerRef.current = null;
+  const onActionUp = () => {
+    if (holdTimer.current) {
+      window.clearTimeout(holdTimer.current);
+      holdTimer.current = null;
     }
-    if (recording) {
+
+    if (longPressActive.current) {
       send(mode, mode === 'video' ? '🎥 Video circle (placeholder, up to 1m)' : '🎙️ Voice note (placeholder, up to 1m)');
       setRecording(false);
+      longPressActive.current = false;
+      return;
     }
+
+    setMode((prev) => (prev === 'audio' ? 'video' : 'audio'));
   };
 
   return (
-    <div className="border-t border-gray-100 bg-white/95 backdrop-blur p-3 pb-5 space-y-2">
+    <motion.div
+      initial={false}
+      animate={{ y: isOpen ? 0 : 72, opacity: isOpen ? 1 : 0.7 }}
+      transition={{ type: 'spring', stiffness: 340, damping: 34 }}
+      className="border-t border-gray-100 bg-white/95 backdrop-blur p-3 pb-5 space-y-2"
+      onClick={onReveal}
+    >
       <div className="flex items-end gap-2">
         <div className="relative">
-          <button onClick={() => setShowAttachMenu((prev) => !prev)} className="h-10 w-10 rounded-xl bg-gray-100 text-gray-600 flex items-center justify-center">
+          <button onClick={() => { onReveal(); setShowAttachMenu((prev) => !prev); }} className="h-10 w-10 rounded-xl bg-gray-100 text-gray-600 flex items-center justify-center">
             <Paperclip size={18} />
           </button>
           <AnimatePresence>
@@ -103,12 +120,7 @@ function ChatComposer({ onSend }: ChatComposerProps) {
             <button onClick={() => send('sticker', '🧷 Sticker placeholder')} className="text-gray-500"><Sticker size={16} /></button>
             <button onClick={() => send('image', '🖼️ Image placeholder')} className="text-gray-500"><ImageIcon size={16} /></button>
           </div>
-          <input
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            placeholder="Message"
-            className="w-full text-sm bg-transparent focus:outline-none"
-          />
+          <input value={value} onChange={(e) => setValue(e.target.value)} onFocus={onReveal} placeholder="Message" className="w-full text-sm bg-transparent focus:outline-none" />
         </div>
 
         {value.trim() ? (
@@ -116,26 +128,23 @@ function ChatComposer({ onSend }: ChatComposerProps) {
             <Send size={16} />
           </button>
         ) : (
-          <div className="flex items-center gap-1">
-            <button onClick={() => setMode((prev) => (prev === 'audio' ? 'video' : 'audio'))} className="h-10 w-10 rounded-xl bg-gray-100 text-gray-600 flex items-center justify-center" title="Toggle audio/video">
+          <button
+            onMouseDown={onActionDown}
+            onMouseUp={onActionUp}
+            onMouseLeave={() => recording && onActionUp()}
+            onTouchStart={onActionDown}
+            onTouchEnd={onActionUp}
+            className={`h-10 w-10 rounded-xl flex items-center justify-center ${recording ? 'bg-red-500 text-white animate-pulse' : 'bg-primary-500 text-white'}`}
+            title="Tap to switch audio/video, hold to record"
+          >
+            <motion.div key={mode} initial={{ scale: 0.6, rotate: -24, opacity: 0 }} animate={{ scale: 1, rotate: 0, opacity: 1 }} transition={{ type: 'spring', stiffness: 400, damping: 24 }}>
               {mode === 'audio' ? <Mic size={16} /> : <Video size={16} />}
-            </button>
-            <button
-              onMouseDown={onRecordStart}
-              onMouseUp={onRecordEnd}
-              onMouseLeave={onRecordEnd}
-              onTouchStart={onRecordStart}
-              onTouchEnd={onRecordEnd}
-              className={`h-10 w-10 rounded-xl flex items-center justify-center ${recording ? 'bg-red-500 text-white animate-pulse' : 'bg-primary-500 text-white'}`}
-              title="Hold to record"
-            >
-              {mode === 'audio' ? <Mic size={16} /> : <Video size={16} />}
-            </button>
-          </div>
+            </motion.div>
+          </button>
         )}
       </div>
       {recording && <p className="text-[11px] text-red-500">Recording {mode}… release to send placeholder.</p>}
-    </div>
+    </motion.div>
   );
 }
 
@@ -163,9 +172,13 @@ export default function Chats() {
     groupChatBackgroundByGroupId,
     setDirectChatBackground,
     setGroupChatBackground,
+    openUserProfile,
+    stories,
+    openStoryViewer,
   } = useAppStore();
 
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showDirectDetails, setShowDirectDetails] = useState(false);
   const [groupName, setGroupName] = useState('');
   const [groupDescription, setGroupDescription] = useState('');
   const [groupAvatar, setGroupAvatar] = useState('📚');
@@ -174,6 +187,13 @@ export default function Chats() {
   const [groupFeedback, setGroupFeedback] = useState('');
 
   const [search, setSearch] = useState('');
+  const [directComposerOpen, setDirectComposerOpen] = useState(false);
+  const [groupComposerOpen, setGroupComposerOpen] = useState(false);
+  const [dmAtBottom, setDmAtBottom] = useState(true);
+  const [groupAtBottom, setGroupAtBottom] = useState(true);
+
+  const dmScrollRef = useRef<HTMLDivElement | null>(null);
+  const groupScrollRef = useRef<HTMLDivElement | null>(null);
 
   const filteredProfiles = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -191,7 +211,6 @@ export default function Chats() {
     })
     .filter(Boolean), [directThreads, communityUsers, user.id]);
 
-  // Single active-thread declaration (post-merge): avoid duplicate declarations.
   const activeThread = useMemo(() => directThreads.find((thread) => thread.id === activeDirectThreadId) || null, [directThreads, activeDirectThreadId]);
   const activeThreadUser = useMemo(() => {
     if (!activeThread) return null;
@@ -201,6 +220,24 @@ export default function Chats() {
 
   const activeGroup = useMemo(() => groups.find((group) => group.id === activeGroupChatId) || null, [groups, activeGroupChatId]);
   const activeGroupMessages = useMemo(() => (activeGroup ? groupMessagesById[activeGroup.id] || [] : []), [activeGroup, groupMessagesById]);
+
+  const scrollToBottom = (target: 'dm' | 'group') => {
+    const el = target === 'dm' ? dmScrollRef.current : groupScrollRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    if (activeThread) {
+      setTimeout(() => scrollToBottom('dm'), 0);
+    }
+  }, [activeThread?.id]);
+
+  useEffect(() => {
+    if (activeGroup) {
+      setTimeout(() => scrollToBottom('group'), 0);
+    }
+  }, [activeGroup?.id]);
 
   const handleCreateGroup = () => {
     const result = createGroup({ name: groupName, description: groupDescription, avatar: groupAvatar });
@@ -232,40 +269,68 @@ export default function Chats() {
     const background = directChatBackgroundByThreadId[activeThread.id] || 'bg-gray-50';
 
     return (
-      <motion.div initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} className="max-w-md mx-auto min-h-screen flex flex-col bg-white pb-20">
+      <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -16 }} transition={{ type: 'spring', stiffness: 280, damping: 30 }} className="max-w-md mx-auto min-h-screen flex flex-col bg-white pb-20" onMouseMove={(e) => e.clientY > window.innerHeight - 140 && setDirectComposerOpen(true)}>
         <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-gray-100 px-4 py-3 flex items-center gap-3">
           <button onClick={closeDirectThread} className="p-2 rounded-full hover:bg-gray-100"><ArrowLeft size={20} /></button>
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-200 to-pink-200 flex items-center justify-center text-xl">{activeThreadUser.avatar}</div>
+          <button onClick={() => {
+            const targetStory = stories.find((story) => story.userId === activeThreadUser.id);
+            if (targetStory) openStoryViewer(targetStory.id);
+          }} className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-200 to-pink-200 flex items-center justify-center text-xl">{activeThreadUser.avatar}</button>
           <div className="flex-1">
-            <h1 className="font-bold text-gray-900">{activeThreadUser.displayName}</h1>
+            <button onClick={() => openUserProfile(activeThreadUser.id)} className="font-bold text-gray-900">{activeThreadUser.displayName}</button>
             <p className="text-xs text-gray-500">@{activeThreadUser.username}</p>
           </div>
-          <div className="relative group">
-            <button className="p-2 rounded-full hover:bg-gray-100"><Palette size={18} className="text-gray-500" /></button>
-            <div className="absolute right-0 mt-2 hidden group-hover:flex bg-white border border-gray-200 rounded-xl p-2 gap-1 shadow-lg">
-              {chatBackgrounds.map((bg) => (
-                <button key={bg} onClick={() => setDirectChatBackground(activeThread.id, bg)} className={`h-6 w-6 rounded-full border ${bg}`} />
-              ))}
-            </div>
-          </div>
+          <button onClick={() => setShowDirectDetails(true)} className="p-2 rounded-full hover:bg-gray-100"><SlidersHorizontal size={18} className="text-gray-500" /></button>
         </header>
 
-        <div className={`flex-1 overflow-y-auto p-4 space-y-3 transition-colors ${background}`}>
+        <div ref={dmScrollRef} onScroll={(e) => {
+          const el = e.currentTarget;
+          const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 48;
+          setDmAtBottom(atBottom);
+        }} className={`flex-1 overflow-y-auto p-4 space-y-3 transition-colors ${background}`} onClick={(e) => {
+          const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
+          if (e.clientY > rect.bottom - 120) setDirectComposerOpen(true);
+        }}>
           {activeThread.messages.length === 0 && <p className="text-sm text-gray-500 text-center">Start your first message.</p>}
-          {activeThread.messages.map((message) => {
+          {activeThread.messages.map((message, index) => {
             const mine = message.senderId === user.id;
             return (
-              <div key={message.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
+              <motion.div key={message.id} initial={{ opacity: 0, y: 10, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ delay: Math.min(index * 0.03, 0.2), type: 'spring', stiffness: 420, damping: 30 }} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm ${mine ? 'bg-primary-500 text-white' : 'bg-white border border-gray-200 text-gray-800'}`}>
                   <p>{message.content}</p>
                   <p className={`mt-1 text-[10px] ${mine ? 'text-primary-100' : 'text-gray-400'}`}>{message.type}</p>
                 </div>
-              </div>
+              </motion.div>
             );
           })}
         </div>
 
-        <ChatComposer onSend={({ content, type }) => sendDirectMessage(activeThread.id, { content, type: type as DirectMessage['type'] })} />
+        {!dmAtBottom && (
+          <button onClick={() => scrollToBottom('dm')} className="absolute bottom-28 right-4 z-30 h-10 w-10 rounded-full bg-white border border-gray-200 shadow-lg flex items-center justify-center text-gray-600">
+            <ChevronDown size={18} />
+          </button>
+        )}
+
+        <div className="absolute bottom-20 left-0 right-0 z-20">
+          <ChatComposer isOpen={directComposerOpen} onReveal={() => setDirectComposerOpen(true)} onSend={({ content, type }) => sendDirectMessage(activeThread.id, { content, type: type as DirectMessage['type'] })} />
+        </div>
+
+        <AnimatePresence>
+          {showDirectDetails && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-end p-4">
+              <div className="absolute inset-0 bg-black/40" onClick={() => setShowDirectDetails(false)} />
+              <motion.div initial={{ y: 24 }} animate={{ y: 0 }} exit={{ y: 20 }} className="relative z-10 w-full rounded-3xl bg-white p-5">
+                <h3 className="font-bold text-gray-900 mb-3">Chat details</h3>
+                <p className="text-xs text-gray-500 mb-2">Wallpaper</p>
+                <div className="flex gap-2">
+                  {chatBackgrounds.map((bg) => (
+                    <button key={bg} onClick={() => setDirectChatBackground(activeThread.id, bg)} className={`h-8 w-8 rounded-full border ${bg}`} />
+                  ))}
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.div>
     );
   }
@@ -275,22 +340,15 @@ export default function Chats() {
     const background = groupChatBackgroundByGroupId[activeGroup.id] || 'bg-gray-50';
 
     return (
-      <motion.div initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -18 }} className="max-w-md mx-auto min-h-screen flex flex-col bg-white pb-20">
+      <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -16 }} transition={{ type: 'spring', stiffness: 280, damping: 30 }} className="max-w-md mx-auto min-h-screen flex flex-col bg-white pb-20" onMouseMove={(e) => e.clientY > window.innerHeight - 140 && setGroupComposerOpen(true)}>
         <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-gray-100 px-4 py-3 flex items-center gap-3">
           <button onClick={closeGroupChat} className="p-2 rounded-full hover:bg-gray-100"><ArrowLeft size={20} /></button>
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-200 to-pink-200 flex items-center justify-center text-xl">{activeGroup.avatar}</div>
+          <button onClick={() => selectGroup(activeGroup)} className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-200 to-pink-200 flex items-center justify-center text-xl">{activeGroup.avatar}</button>
           <div className="flex-1">
-            <h1 className="font-bold text-gray-900">{activeGroup.name}</h1>
+            <button onClick={() => selectGroup(activeGroup)} className="font-bold text-gray-900 text-left">{activeGroup.name}</button>
             <p className="text-xs text-gray-500">{activeGroup.isPrivate ? 'Private group' : 'Public group'} • {activeGroup.memberCount} members</p>
           </div>
-          <div className="relative group">
-            <button className="p-2 rounded-full hover:bg-gray-100"><Palette size={18} className="text-gray-500" /></button>
-            <div className="absolute right-0 mt-2 hidden group-hover:flex bg-white border border-gray-200 rounded-xl p-2 gap-1 shadow-lg">
-              {chatBackgrounds.map((bg) => (
-                <button key={bg} onClick={() => setGroupChatBackground(activeGroup.id, bg)} className={`h-6 w-6 rounded-full border ${bg}`} />
-              ))}
-            </div>
-          </div>
+          <button onClick={() => selectGroup(activeGroup)} className="p-2 rounded-full hover:bg-gray-100"><SlidersHorizontal size={18} className="text-gray-500" /></button>
         </header>
 
         <div className="px-4 py-2 bg-white border-b border-gray-100">
@@ -303,21 +361,36 @@ export default function Chats() {
           )}
         </div>
 
-        <div className={`flex-1 overflow-y-auto p-4 space-y-3 ${background}`}>
-          {activeGroupMessages.map((message) => {
+        <div ref={groupScrollRef} onScroll={(e) => {
+          const el = e.currentTarget;
+          const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 48;
+          setGroupAtBottom(atBottom);
+        }} className={`flex-1 overflow-y-auto p-4 space-y-3 ${background}`} onClick={(e) => {
+          const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
+          if (e.clientY > rect.bottom - 120) setGroupComposerOpen(true);
+        }}>
+          {activeGroupMessages.map((message, index) => {
             const mine = message.senderId === user.id;
             return (
-              <div key={message.id} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
+              <motion.div key={message.id} initial={{ opacity: 0, y: 10, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ delay: Math.min(index * 0.03, 0.2), type: 'spring', stiffness: 420, damping: 30 }} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm ${mine ? 'bg-primary-500 text-white' : 'bg-white border border-gray-200 text-gray-800'}`}>
                   <p>{message.content}</p>
                   <p className={`mt-1 text-[10px] ${mine ? 'text-primary-100' : 'text-gray-400'}`}>{message.type}</p>
                 </div>
-              </div>
+              </motion.div>
             );
           })}
         </div>
 
-        <ChatComposer onSend={({ content, type }) => sendGroupMessage(activeGroup.id, { content, type: type as GroupMessage['type'] })} />
+        {!groupAtBottom && (
+          <button onClick={() => scrollToBottom('group')} className="absolute bottom-28 right-4 z-30 h-10 w-10 rounded-full bg-white border border-gray-200 shadow-lg flex items-center justify-center text-gray-600">
+            <ChevronDown size={18} />
+          </button>
+        )}
+
+        <div className="absolute bottom-20 left-0 right-0 z-20">
+          <ChatComposer isOpen={groupComposerOpen} onReveal={() => setGroupComposerOpen(true)} onSend={({ content, type }) => sendGroupMessage(activeGroup.id, { content, type: type as GroupMessage['type'] })} />
+        </div>
       </motion.div>
     );
   }
@@ -464,7 +537,13 @@ export default function Chats() {
                   <p className="text-gray-500 text-sm">{selectedGroup.memberCount} participants</p>
                 </div>
               </div>
-              <p className="text-gray-600 mb-6">{selectedGroup.description}</p>
+              <p className="text-gray-600 mb-3">{selectedGroup.description}</p>
+              <p className="text-xs text-gray-500 mb-2">Wallpaper</p>
+              <div className="flex gap-2 mb-6">
+                {chatBackgrounds.map((bg) => (
+                  <button key={bg} onClick={() => setGroupChatBackground(selectedGroup.id, bg)} className={`h-8 w-8 rounded-full border ${bg}`} />
+                ))}
+              </div>
               <button onClick={() => openGroupChat(selectedGroup.id)} className="w-full py-3 rounded-xl bg-gradient-to-r from-primary-500 to-pink-500 text-white font-medium">Open Group Chat</button>
             </motion.div>
           </motion.div>
