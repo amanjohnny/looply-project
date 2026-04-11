@@ -2,10 +2,10 @@ import { useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import type { Group } from '../types';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Users, Plus, Crown, Award, MessageCircle, UserPlus, X } from 'lucide-react';
+import { Users, Plus, Crown, Award, UserPlus, X } from 'lucide-react';
 
-export default function Groups() {
-  const { groups, selectGroup, selectedGroup, user, setCurrentPage } = useAppStore();
+export default function Chats() {
+  const { groups, selectGroup, selectedGroup, user } = useAppStore();
   const [showCreateModal, setShowCreateModal] = useState(false);
 
   const handleGroupClick = (group: Group) => {
@@ -17,21 +17,21 @@ export default function Groups() {
       {/* Header */}
       <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-gray-100">
         <div className="flex items-center justify-between px-4 py-3">
-          <h1 className="text-xl font-bold text-gray-900">Groups</h1>
+          <h1 className="text-xl font-bold text-gray-900">Chats</h1>
           <button
             onClick={() => setShowCreateModal(true)}
             className="flex items-center gap-1 px-3 py-1.5 bg-primary-500 text-white rounded-full text-sm font-medium"
           >
             <Plus size={16} />
-            Create
+            New
           </button>
         </div>
       </header>
 
       <div className="p-4 space-y-4">
-        {/* My Groups */}
+        {/* Recent Chats */}
         <div>
-          <h2 className="text-lg font-semibold text-gray-900 mb-3">My Groups</h2>
+          <h2 className="text-lg font-semibold text-gray-900 mb-3">Recent Chats</h2>
           
           <div className="space-y-3">
             {groups.map((group, index) => (
@@ -76,30 +76,30 @@ export default function Groups() {
           </div>
         </div>
 
-        {/* Discover */}
+        {/* Channels */}
         <div>
-          <h2 className="text-lg font-semibold text-gray-900 mb-3">Discover</h2>
+          <h2 className="text-lg font-semibold text-gray-900 mb-3">Channels</h2>
           
           <div className="flex gap-3 overflow-x-auto hide-scrollbar pb-2">
             {[
-              { name: 'Study Buddies', avatar: '📚', members: '12K' },
-              { name: 'Math League', avatar: '➗', members: '8K' },
-              { name: 'Bookworms', avatar: '📖', members: '15K' },
-              { name: 'Science Hub', avatar: '🔬', members: '10K' },
+              { name: 'Study Buddies', avatar: '📚', participants: '12K' },
+              { name: 'Math League', avatar: '➗', participants: '8K' },
+              { name: 'Bookworms', avatar: '📖', participants: '15K' },
+              { name: 'Science Hub', avatar: '🔬', participants: '10K' },
             ].map((group, i) => (
               <div key={i} className="flex-shrink-0 w-28 bg-white rounded-2xl p-4 shadow-card text-center">
                 <div className="w-12 h-12 rounded-xl bg-gray-50 flex items-center justify-center text-2xl mx-auto mb-2">
                   {group.avatar}
                 </div>
                 <p className="font-medium text-gray-900 text-sm truncate">{group.name}</p>
-                <p className="text-xs text-gray-400">{group.members}</p>
+                <p className="text-xs text-gray-400">{group.participants}</p>
               </div>
             ))}
           </div>
         </div>
       </div>
 
-      {/* Create Group Modal */}
+      {/* New Chat Modal */}
       <AnimatePresence>
         {showCreateModal && (
           <motion.div
@@ -122,14 +122,14 @@ export default function Groups() {
                 <X className="text-gray-400" size={20} />
               </button>
 
-              <h2 className="text-xl font-bold text-gray-900 mb-6">Create New Group</h2>
+              <h2 className="text-xl font-bold text-gray-900 mb-6">Start New Chat</h2>
 
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Group Name</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Chat Name</label>
                   <input 
                     type="text" 
-                    placeholder="Enter group name..."
+                    placeholder="Enter chat name..."
                     className="input-field"
                   />
                 </div>
@@ -137,14 +137,14 @@ export default function Groups() {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
                   <textarea 
-                    placeholder="What is your group about?"
+                    placeholder="What is this chat about?"
                     rows={3}
                     className="input-field resize-none"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Group Icon</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Chat Icon</label>
                   <div className="flex gap-2">
                     {['📚', '🔬', '📖', '🎵', '🎨', '⚽'].map((emoji) => (
                       <button
@@ -196,7 +196,7 @@ export default function Groups() {
                 </div>
                 <div>
                   <h2 className="text-xl font-bold text-gray-900">{selectedGroup.name}</h2>
-                  <p className="text-gray-500 text-sm">{selectedGroup.memberCount} members</p>
+                  <p className="text-gray-500 text-sm">{selectedGroup.memberCount} participants</p>
                 </div>
               </div>
 
@@ -218,11 +218,11 @@ export default function Groups() {
               <div className="space-y-3">
                 <button className="w-full py-3 rounded-xl bg-gradient-to-r from-primary-500 to-pink-500 text-white font-medium flex items-center justify-center gap-2">
                   <Plus size={18} />
-                  Create Challenge
+                  Send Message
                 </button>
                 <button className="w-full py-3 rounded-xl bg-gray-100 text-gray-700 font-medium flex items-center justify-center gap-2">
                   <UserPlus size={18} />
-                  Invite Members
+                  Invite People
                 </button>
               </div>
             </motion.div>
