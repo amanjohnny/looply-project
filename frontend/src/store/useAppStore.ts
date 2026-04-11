@@ -186,6 +186,18 @@ const mockDirectThreads: DirectThread[] = [
   },
 ];
 
+const mockDirectThreads: DirectThread[] = [
+  {
+    id: 'dm-u1-u2',
+    participantIds: ['u1', 'u2'],
+    updatedAt: new Date(Date.now() - 2400000),
+    messages: [
+      { id: 'dm1', threadId: 'dm-u1-u2', senderId: 'u2', type: 'text', content: 'Finished your math challenge yet?', createdAt: new Date(Date.now() - 3000000) },
+      { id: 'dm2', threadId: 'dm-u1-u2', senderId: 'u1', type: 'emoji', content: '✅📚', createdAt: new Date(Date.now() - 2400000) },
+    ],
+  },
+];
+
 const mockCommunityUsers: User[] = [
   { id: 'u1', displayName: 'Ari Carter', username: 'studentpro', avatar: '🎮', bio: 'Building better study habits every day 📚', level: 12, xp: 2450, coins: 1250, streak: 7, joinedAt: new Date('2024-09-15') },
   { id: 'u2', displayName: 'Mina Page', username: 'bookworm99', avatar: '📖', bio: 'Reading challenges and cozy notes.', level: 10, xp: 1920, coins: 980, streak: 5, joinedAt: new Date('2024-08-12') },

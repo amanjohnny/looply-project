@@ -123,6 +123,22 @@ export interface GroupMessage {
   createdAt: Date;
 }
 
+export interface DirectMessage {
+  id: string;
+  threadId: string;
+  senderId: string;
+  type: 'text' | 'emoji' | 'sticker' | 'image';
+  content: string;
+  createdAt: Date;
+}
+
+export interface DirectThread {
+  id: string;
+  participantIds: [string, string];
+  messages: DirectMessage[];
+  updatedAt: Date;
+}
+
 export interface GroupChallenge {
   id: string;
   groupId: string;
