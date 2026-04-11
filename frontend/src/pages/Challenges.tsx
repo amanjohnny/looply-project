@@ -1,7 +1,7 @@
 import { useAppStore } from '../store/useAppStore';
 import type { Challenge } from '../types';
 import { motion } from 'framer-motion';
-import { Star, CheckCircle, Camera, Clock, Zap, Award } from 'lucide-react';
+import { CheckCircle, Camera } from 'lucide-react';
 
 const difficultyColors = {
   easy: 'text-green-600 bg-green-50',
@@ -19,7 +19,7 @@ const categoryIcons: Record<string, string> = {
 };
 
 export default function Challenges() {
-  const { challenges, completeChallenge, user, setCurrentPage } = useAppStore();
+  const { challenges, completeChallenge, user, setCurrentPage, setMissionsTab } = useAppStore();
   const activeChallenges = challenges.filter(c => !c.completed);
   const completedCount = challenges.filter(c => c.completed).length;
 
@@ -132,7 +132,10 @@ export default function Challenges() {
           </button>
 
           <button 
-            onClick={() => setCurrentPage('cases')}
+            onClick={() => {
+              setMissionsTab('rewards');
+              setCurrentPage('missions');
+            }}
             className="bg-white rounded-2xl p-4 shadow-card text-left hover:shadow-card-hover transition-all"
           >
             <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center mb-3">
