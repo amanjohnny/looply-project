@@ -28,6 +28,13 @@ const chatBackgrounds = ['bg-gray-50', 'bg-pink-50', 'bg-blue-50', 'bg-gradient-
 
 type ComposerMode = 'audio' | 'video';
 type OutgoingMessageType = DirectMessage['type'] | GroupMessage['type'];
+type StagedAttachmentType = Exclude<OutgoingMessageType, 'text' | 'emoji'>;
+
+interface StagedAttachment {
+  type: StagedAttachmentType;
+  content: string;
+  label: string;
+}
 
 interface ChatComposerProps {
   isOpen: boolean;
@@ -40,12 +47,38 @@ function ChatComposer({ isOpen, onReveal, onSend }: ChatComposerProps) {
   const [showAttachMenu, setShowAttachMenu] = useState(false);
   const [mode, setMode] = useState<ComposerMode>('audio');
   const [recording, setRecording] = useState(false);
+  const [stagedAttachment, setStagedAttachment] = useState<StagedAttachment | null>(null);
+  const [helper, setHelper] = useState('');
   const holdTimer = useRef<number | null>(null);
   const longPressActive = useRef(false);
 
-  const send = (type: OutgoingMessageType, content: string) => {
-    onSend({ type, content });
-    if (type === 'text') setValue('');
+  const stageAttachment = (next: StagedAttachment) => {
+    if (stagedAttachment && stagedAttachment.type !== next.type) {
+      setHelper(`Replaced ${stagedAttachment.label} with ${next.label}.`);
+    } else {
+      setHelper(`${next.label} staged. Press send to confirm.`);
+    }
+    setStagedAttachment(next);
+    setShowAttachMenu(false);
+  };
+
+  const sendPayload = () => {
+    const text = value.trim();
+    if (!text && !stagedAttachment) {
+      setHelper('Add text or stage one item before sending.');
+      return;
+    }
+
+    if (text) {
+      onSend({ type: 'text', content: text });
+    }
+    if (stagedAttachment) {
+      onSend({ type: stagedAttachment.type, content: stagedAttachment.content });
+    }
+
+    setValue('');
+    setStagedAttachment(null);
+    setHelper('');
     setShowAttachMenu(false);
   };
 
@@ -64,7 +97,11 @@ function ChatComposer({ isOpen, onReveal, onSend }: ChatComposerProps) {
     }
 
     if (longPressActive.current) {
-      send(mode, mode === 'video' ? '🎥 Video circle (placeholder, up to 1m)' : '🎙️ Voice note (placeholder, up to 1m)');
+      stageAttachment({
+        type: mode,
+        content: mode === 'video' ? '🎥 Video circle (placeholder, up to 1m)' : '🎙️ Voice note (placeholder, up to 1m)',
+        label: mode === 'video' ? 'Video circle' : 'Voice note',
+      });
       setRecording(false);
       longPressActive.current = false;
       return;
@@ -76,14 +113,46 @@ function ChatComposer({ isOpen, onReveal, onSend }: ChatComposerProps) {
   return (
     <motion.div
       initial={false}
-      animate={{ y: isOpen ? 0 : 72, opacity: isOpen ? 1 : 0.7 }}
-      transition={{ type: 'spring', stiffness: 340, damping: 34 }}
-      className="border-t border-gray-100 bg-white/95 backdrop-blur p-3 pb-5 space-y-2"
+      animate={{ y: isOpen ? 0 : 64, opacity: isOpen ? 1 : 0.92 }}
+      transition={{ type: 'spring', stiffness: 340, damping: 36 }}
+      className="relative border-t border-gray-100 bg-white/95 backdrop-blur px-3 pb-4 pt-2"
       onClick={onReveal}
     >
+      <div className="mx-auto mb-2 h-1.5 w-12 rounded-full bg-gray-200" />
+
+      <AnimatePresence>
+        {stagedAttachment && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 6 }}
+            className="mb-2 flex items-center justify-between rounded-xl border border-primary-100 bg-primary-50 px-3 py-2 text-xs"
+          >
+            <p className="font-medium text-primary-700">Staged: {stagedAttachment.label}</p>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setStagedAttachment(null);
+                setHelper('');
+              }}
+              className="rounded-md px-2 py-1 text-primary-600 hover:bg-primary-100"
+            >
+              Remove
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="flex items-end gap-2">
         <div className="relative">
-          <button onClick={() => { onReveal(); setShowAttachMenu((prev) => !prev); }} className="h-10 w-10 rounded-xl bg-gray-100 text-gray-600 flex items-center justify-center">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onReveal();
+              setShowAttachMenu((prev) => !prev);
+            }}
+            className="h-10 w-10 rounded-xl bg-gray-100 text-gray-600 flex items-center justify-center"
+          >
             <Paperclip size={18} />
           </button>
           <AnimatePresence>
@@ -92,18 +161,20 @@ function ChatComposer({ isOpen, onReveal, onSend }: ChatComposerProps) {
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 8 }}
-                className="absolute bottom-12 left-0 z-20 rounded-2xl border border-gray-200 bg-white p-2 shadow-xl w-48"
+                className="absolute bottom-12 left-0 z-20 rounded-2xl border border-gray-200 bg-white p-2 shadow-xl w-52"
               >
                 {[
-                  { label: 'Document', icon: '📄', type: 'document' as OutgoingMessageType },
-                  { label: 'Image', icon: '🖼️', type: 'image' as OutgoingMessageType },
-                  { label: 'Video', icon: '🎬', type: 'video' as OutgoingMessageType },
-                  { label: 'Gift Collectible', icon: '🎁', type: 'gift' as OutgoingMessageType },
-                  { label: 'Future Item', icon: '🧩', type: 'sticker' as OutgoingMessageType },
+                  { label: 'Document', icon: '📄', type: 'document' as StagedAttachmentType, content: '📄 Document placeholder' },
+                  { label: 'Image', icon: '🖼️', type: 'image' as StagedAttachmentType, content: '🖼️ Image placeholder' },
+                  { label: 'Video circle', icon: '🎬', type: 'video' as StagedAttachmentType, content: '🎬 Video circle placeholder' },
+                  { label: 'Gift Collectible', icon: '🎁', type: 'gift' as StagedAttachmentType, content: '🎁 Gift collectible placeholder' },
                 ].map((item) => (
                   <button
                     key={item.label}
-                    onClick={() => send(item.type, `${item.icon} ${item.label} placeholder`)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      stageAttachment({ type: item.type, content: item.content, label: item.label });
+                    }}
                     className="w-full px-3 py-2 rounded-xl text-left text-sm hover:bg-gray-100"
                   >
                     {item.icon} {item.label}
@@ -115,27 +186,65 @@ function ChatComposer({ isOpen, onReveal, onSend }: ChatComposerProps) {
         </div>
 
         <div className="flex-1 rounded-2xl border border-gray-200 bg-white px-3 py-2">
-          <div className="flex items-center gap-2 mb-1">
-            <button onClick={() => send('emoji', '😊')} className="text-gray-500"><Smile size={16} /></button>
-            <button onClick={() => send('sticker', '🧷 Sticker placeholder')} className="text-gray-500"><Sticker size={16} /></button>
-            <button onClick={() => send('image', '🖼️ Image placeholder')} className="text-gray-500"><ImageIcon size={16} /></button>
+          <div className="mb-1 flex items-center gap-2">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setValue((prev) => `${prev}${prev ? ' ' : ''}😊`);
+                onReveal();
+              }}
+              className="text-gray-500"
+            ><Smile size={16} /></button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                stageAttachment({ type: 'sticker', content: '🧷 Sticker placeholder', label: 'Sticker' });
+              }}
+              className="text-gray-500"
+            ><Sticker size={16} /></button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                stageAttachment({ type: 'image', content: '🖼️ Image placeholder', label: 'Image' });
+              }}
+              className="text-gray-500"
+            ><ImageIcon size={16} /></button>
           </div>
-          <input value={value} onChange={(e) => setValue(e.target.value)} onFocus={onReveal} placeholder="Message" className="w-full text-sm bg-transparent focus:outline-none" />
+          <input
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            onFocus={onReveal}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendPayload();
+              }
+            }}
+            placeholder="Message"
+            className="w-full text-sm bg-transparent focus:outline-none"
+          />
         </div>
 
-        {value.trim() ? (
-          <button onClick={() => send('text', value)} className="h-10 w-10 rounded-xl bg-primary-500 text-white flex items-center justify-center">
-            <Send size={16} />
-          </button>
-        ) : (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            sendPayload();
+          }}
+          className="h-10 w-10 rounded-xl bg-primary-500 text-white flex items-center justify-center"
+          title="Send staged message"
+        >
+          <Send size={16} />
+        </button>
+
+        {!value.trim() && !stagedAttachment && (
           <button
             onMouseDown={onActionDown}
             onMouseUp={onActionUp}
             onMouseLeave={() => recording && onActionUp()}
             onTouchStart={onActionDown}
             onTouchEnd={onActionUp}
-            className={`h-10 w-10 rounded-xl flex items-center justify-center ${recording ? 'bg-red-500 text-white animate-pulse' : 'bg-primary-500 text-white'}`}
-            title="Tap to switch audio/video, hold to record"
+            className={`h-10 w-10 rounded-xl flex items-center justify-center ${recording ? 'bg-red-500 text-white animate-pulse' : 'bg-gray-100 text-gray-600'}`}
+            title="Tap to switch audio/video, hold to stage"
           >
             <motion.div key={mode} initial={{ scale: 0.6, rotate: -24, opacity: 0 }} animate={{ scale: 1, rotate: 0, opacity: 1 }} transition={{ type: 'spring', stiffness: 400, damping: 24 }}>
               {mode === 'audio' ? <Mic size={16} /> : <Video size={16} />}
@@ -143,7 +252,12 @@ function ChatComposer({ isOpen, onReveal, onSend }: ChatComposerProps) {
           </button>
         )}
       </div>
-      {recording && <p className="text-[11px] text-red-500">Recording {mode}… release to send placeholder.</p>}
+
+      {(recording || helper) && (
+        <p className={`mt-2 text-[11px] ${recording ? 'text-red-500' : 'text-gray-500'}`}>
+          {recording ? `Recording ${mode}… release to stage placeholder.` : helper}
+        </p>
+      )}
     </motion.div>
   );
 }
@@ -192,6 +306,8 @@ export default function Chats() {
   const [dmAtBottom, setDmAtBottom] = useState(true);
   const [groupAtBottom, setGroupAtBottom] = useState(true);
 
+  const dmScreenRef = useRef<HTMLDivElement | null>(null);
+  const groupScreenRef = useRef<HTMLDivElement | null>(null);
   const dmScrollRef = useRef<HTMLDivElement | null>(null);
   const groupScrollRef = useRef<HTMLDivElement | null>(null);
 
@@ -221,6 +337,16 @@ export default function Chats() {
   const activeGroup = useMemo(() => groups.find((group) => group.id === activeGroupChatId) || null, [groups, activeGroupChatId]);
   const activeGroupMessages = useMemo(() => (activeGroup ? groupMessagesById[activeGroup.id] || [] : []), [activeGroup, groupMessagesById]);
 
+  const revealComposerOnEdge = (target: 'dm' | 'group', y: number) => {
+    const el = target === 'dm' ? dmScreenRef.current : groupScreenRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    if (y > rect.bottom - 120) {
+      if (target === 'dm') setDirectComposerOpen(true);
+      else setGroupComposerOpen(true);
+    }
+  };
+
   const scrollToBottom = (target: 'dm' | 'group') => {
     const el = target === 'dm' ? dmScrollRef.current : groupScrollRef.current;
     if (!el) return;
@@ -230,12 +356,14 @@ export default function Chats() {
   useEffect(() => {
     if (activeThread) {
       setTimeout(() => scrollToBottom('dm'), 0);
+      setDirectComposerOpen(false);
     }
   }, [activeThread?.id]);
 
   useEffect(() => {
     if (activeGroup) {
       setTimeout(() => scrollToBottom('group'), 0);
+      setGroupComposerOpen(false);
     }
   }, [activeGroup?.id]);
 
@@ -269,7 +397,15 @@ export default function Chats() {
     const background = directChatBackgroundByThreadId[activeThread.id] || 'bg-gray-50';
 
     return (
-      <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -16 }} transition={{ type: 'spring', stiffness: 280, damping: 30 }} className="max-w-md mx-auto min-h-screen flex flex-col bg-white pb-20" onMouseMove={(e) => e.clientY > window.innerHeight - 140 && setDirectComposerOpen(true)}>
+      <motion.div
+        ref={dmScreenRef}
+        initial={{ opacity: 0, x: 20 }}
+        animate={{ opacity: 1, x: 0 }}
+        exit={{ opacity: 0, x: -16 }}
+        transition={{ type: 'spring', stiffness: 280, damping: 30 }}
+        className="relative max-w-md mx-auto min-h-screen flex flex-col bg-white pb-20 overflow-hidden"
+        onMouseMove={(e) => revealComposerOnEdge('dm', e.clientY)}
+      >
         <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-gray-100 px-4 py-3 flex items-center gap-3">
           <button onClick={closeDirectThread} className="p-2 rounded-full hover:bg-gray-100"><ArrowLeft size={20} /></button>
           <button onClick={() => {
@@ -287,7 +423,7 @@ export default function Chats() {
           const el = e.currentTarget;
           const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 48;
           setDmAtBottom(atBottom);
-        }} className={`flex-1 overflow-y-auto p-4 space-y-3 transition-colors ${background}`} onClick={(e) => {
+        }} className={`flex-1 overflow-y-auto p-4 pb-40 space-y-3 transition-colors ${background}`} onClick={(e) => {
           const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
           if (e.clientY > rect.bottom - 120) setDirectComposerOpen(true);
         }}>
@@ -295,7 +431,13 @@ export default function Chats() {
           {activeThread.messages.map((message, index) => {
             const mine = message.senderId === user.id;
             return (
-              <motion.div key={message.id} initial={{ opacity: 0, y: 10, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ delay: Math.min(index * 0.03, 0.2), type: 'spring', stiffness: 420, damping: 30 }} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
+              <motion.div
+                key={message.id}
+                initial={{ opacity: 0, y: 16, scale: 0.94 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ delay: Math.min(index * 0.04, 0.25), type: 'spring', stiffness: 340, damping: 20, mass: 0.55 }}
+                className={`flex ${mine ? 'justify-end' : 'justify-start'}`}
+              >
                 <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm ${mine ? 'bg-primary-500 text-white' : 'bg-white border border-gray-200 text-gray-800'}`}>
                   <p>{message.content}</p>
                   <p className={`mt-1 text-[10px] ${mine ? 'text-primary-100' : 'text-gray-400'}`}>{message.type}</p>
@@ -306,23 +448,23 @@ export default function Chats() {
         </div>
 
         {!dmAtBottom && (
-          <button onClick={() => scrollToBottom('dm')} className="absolute bottom-28 right-4 z-30 h-10 w-10 rounded-full bg-white border border-gray-200 shadow-lg flex items-center justify-center text-gray-600">
+          <button onClick={() => scrollToBottom('dm')} className="absolute bottom-36 right-4 z-30 h-10 w-10 rounded-full bg-white border border-gray-200 shadow-lg flex items-center justify-center text-gray-600">
             <ChevronDown size={18} />
           </button>
         )}
 
-        <div className="absolute bottom-20 left-0 right-0 z-20">
+        <div className="absolute bottom-20 left-0 right-0 z-20" onClick={() => setDirectComposerOpen(true)}>
           <ChatComposer isOpen={directComposerOpen} onReveal={() => setDirectComposerOpen(true)} onSend={({ content, type }) => sendDirectMessage(activeThread.id, { content, type: type as DirectMessage['type'] })} />
         </div>
 
         <AnimatePresence>
           {showDirectDetails && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-end p-4">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-50 flex items-end p-4">
               <div className="absolute inset-0 bg-black/40" onClick={() => setShowDirectDetails(false)} />
-              <motion.div initial={{ y: 24 }} animate={{ y: 0 }} exit={{ y: 20 }} className="relative z-10 w-full rounded-3xl bg-white p-5">
+              <motion.div initial={{ y: 24 }} animate={{ y: 0 }} exit={{ y: 20 }} className="relative z-10 w-full rounded-3xl bg-white p-5 border border-gray-100 max-h-[70%] overflow-y-auto">
                 <h3 className="font-bold text-gray-900 mb-3">Chat details</h3>
                 <p className="text-xs text-gray-500 mb-2">Wallpaper</p>
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap">
                   {chatBackgrounds.map((bg) => (
                     <button key={bg} onClick={() => setDirectChatBackground(activeThread.id, bg)} className={`h-8 w-8 rounded-full border ${bg}`} />
                   ))}
@@ -340,7 +482,15 @@ export default function Chats() {
     const background = groupChatBackgroundByGroupId[activeGroup.id] || 'bg-gray-50';
 
     return (
-      <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -16 }} transition={{ type: 'spring', stiffness: 280, damping: 30 }} className="max-w-md mx-auto min-h-screen flex flex-col bg-white pb-20" onMouseMove={(e) => e.clientY > window.innerHeight - 140 && setGroupComposerOpen(true)}>
+      <motion.div
+        ref={groupScreenRef}
+        initial={{ opacity: 0, x: 20 }}
+        animate={{ opacity: 1, x: 0 }}
+        exit={{ opacity: 0, x: -16 }}
+        transition={{ type: 'spring', stiffness: 280, damping: 30 }}
+        className="relative max-w-md mx-auto min-h-screen flex flex-col bg-white pb-20 overflow-hidden"
+        onMouseMove={(e) => revealComposerOnEdge('group', e.clientY)}
+      >
         <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-gray-100 px-4 py-3 flex items-center gap-3">
           <button onClick={closeGroupChat} className="p-2 rounded-full hover:bg-gray-100"><ArrowLeft size={20} /></button>
           <button onClick={() => selectGroup(activeGroup)} className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-200 to-pink-200 flex items-center justify-center text-xl">{activeGroup.avatar}</button>
@@ -365,14 +515,20 @@ export default function Chats() {
           const el = e.currentTarget;
           const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 48;
           setGroupAtBottom(atBottom);
-        }} className={`flex-1 overflow-y-auto p-4 space-y-3 ${background}`} onClick={(e) => {
+        }} className={`flex-1 overflow-y-auto p-4 pb-40 space-y-3 ${background}`} onClick={(e) => {
           const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
           if (e.clientY > rect.bottom - 120) setGroupComposerOpen(true);
         }}>
           {activeGroupMessages.map((message, index) => {
             const mine = message.senderId === user.id;
             return (
-              <motion.div key={message.id} initial={{ opacity: 0, y: 10, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ delay: Math.min(index * 0.03, 0.2), type: 'spring', stiffness: 420, damping: 30 }} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
+              <motion.div
+                key={message.id}
+                initial={{ opacity: 0, y: 16, scale: 0.94 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ delay: Math.min(index * 0.04, 0.25), type: 'spring', stiffness: 340, damping: 20, mass: 0.55 }}
+                className={`flex ${mine ? 'justify-end' : 'justify-start'}`}
+              >
                 <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm ${mine ? 'bg-primary-500 text-white' : 'bg-white border border-gray-200 text-gray-800'}`}>
                   <p>{message.content}</p>
                   <p className={`mt-1 text-[10px] ${mine ? 'text-primary-100' : 'text-gray-400'}`}>{message.type}</p>
@@ -383,12 +539,12 @@ export default function Chats() {
         </div>
 
         {!groupAtBottom && (
-          <button onClick={() => scrollToBottom('group')} className="absolute bottom-28 right-4 z-30 h-10 w-10 rounded-full bg-white border border-gray-200 shadow-lg flex items-center justify-center text-gray-600">
+          <button onClick={() => scrollToBottom('group')} className="absolute bottom-36 right-4 z-30 h-10 w-10 rounded-full bg-white border border-gray-200 shadow-lg flex items-center justify-center text-gray-600">
             <ChevronDown size={18} />
           </button>
         )}
 
-        <div className="absolute bottom-20 left-0 right-0 z-20">
+        <div className="absolute bottom-20 left-0 right-0 z-20" onClick={() => setGroupComposerOpen(true)}>
           <ChatComposer isOpen={groupComposerOpen} onReveal={() => setGroupComposerOpen(true)} onSend={({ content, type }) => sendGroupMessage(activeGroup.id, { content, type: type as GroupMessage['type'] })} />
         </div>
       </motion.div>
@@ -396,7 +552,7 @@ export default function Chats() {
   }
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-md mx-auto pb-20">
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="relative max-w-md mx-auto pb-20 overflow-hidden">
       <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-gray-100">
         <div className="flex items-center justify-between px-4 py-3">
           <h1 className="text-xl font-bold text-gray-900">Chats</h1>
@@ -479,9 +635,9 @@ export default function Chats() {
 
       <AnimatePresence>
         {showCreateModal && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-50 flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowCreateModal(false)} />
-            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }} className="relative z-10 bg-white rounded-3xl p-6 w-full max-w-md">
+            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }} className="relative z-10 bg-white rounded-3xl p-6 w-full max-w-md max-h-[90%] overflow-y-auto">
               <button onClick={() => setShowCreateModal(false)} className="absolute top-4 right-4 p-2 hover:bg-gray-100 rounded-full transition-colors"><X className="text-gray-400" size={20} /></button>
               <h2 className="text-xl font-bold text-gray-900 mb-1">Create Group</h2>
               <p className="text-sm text-gray-500 mb-4">Start a challenge-focused community.</p>
@@ -527,9 +683,9 @@ export default function Chats() {
 
       <AnimatePresence>
         {selectedGroup && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-50 flex items-center justify-center p-4">
             <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => selectGroup(null)} />
-            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }} className="relative z-10 bg-white rounded-3xl p-6 w-full max-w-md">
+            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }} className="relative z-10 bg-white rounded-3xl p-6 w-full max-w-md max-h-[90%] overflow-y-auto">
               <div className="flex items-center gap-4 mb-6">
                 <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary-200 to-pink-200 flex items-center justify-center text-3xl">{selectedGroup.avatar}</div>
                 <div>
@@ -539,7 +695,7 @@ export default function Chats() {
               </div>
               <p className="text-gray-600 mb-3">{selectedGroup.description}</p>
               <p className="text-xs text-gray-500 mb-2">Wallpaper</p>
-              <div className="flex gap-2 mb-6">
+              <div className="flex gap-2 mb-6 flex-wrap">
                 {chatBackgrounds.map((bg) => (
                   <button key={bg} onClick={() => setGroupChatBackground(selectedGroup.id, bg)} className={`h-8 w-8 rounded-full border ${bg}`} />
                 ))}

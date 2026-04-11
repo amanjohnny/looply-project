@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useAppStore } from './store/useAppStore';
 import { AnimatePresence, motion } from 'framer-motion';
 
@@ -30,7 +31,57 @@ const pageVariants = {
 };
 
 function App() {
-  const { currentPage, isAuthenticated, setCurrentPage, storyViewerOpen, activeDirectThreadId, activeGroupChatId } = useAppStore();
+  const {
+    currentPage,
+    isAuthenticated,
+    setCurrentPage,
+    storyViewerOpen,
+    closeStoryViewer,
+    activeDirectThreadId,
+    activeGroupChatId,
+    closeDirectThread,
+    closeGroupChat,
+  } = useAppStore();
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      e.preventDefault();
+
+      const state = useAppStore.getState();
+      if (state.storyViewerOpen) {
+        closeStoryViewer();
+        return;
+      }
+
+      if (state.currentPage === 'groups' && state.activeDirectThreadId) {
+        closeDirectThread();
+        return;
+      }
+
+      if (state.currentPage === 'groups' && state.activeGroupChatId) {
+        closeGroupChat();
+        return;
+      }
+
+      if (state.currentPage === 'editProfile') {
+        setCurrentPage('profile');
+        return;
+      }
+
+      if (state.currentPage === 'userProfile') {
+        setCurrentPage(state.activeDirectThreadId || state.activeGroupChatId ? 'groups' : 'feed');
+        return;
+      }
+
+      if (state.currentPage === 'settings' || state.currentPage === 'comments' || state.currentPage === 'missions' || state.currentPage === 'create' || state.currentPage === 'profile' || state.currentPage === 'groups') {
+        setCurrentPage('feed');
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [closeDirectThread, closeGroupChat, closeStoryViewer, setCurrentPage]);
 
   if (!isAuthenticated) return <Auth />;
 
@@ -59,7 +110,9 @@ function App() {
     }
   };
 
-  const hideBottomNav = ['editProfile', 'userProfile', 'settings', 'comments'].includes(currentPage) || storyViewerOpen || Boolean(activeDirectThreadId) || Boolean(activeGroupChatId);
+  const hideBottomNav = ['editProfile', 'userProfile', 'settings', 'comments'].includes(currentPage)
+    || storyViewerOpen
+    || (currentPage === 'groups' && (Boolean(activeDirectThreadId) || Boolean(activeGroupChatId)));
 
   return (
     <div className="min-h-screen bg-gray-50">
