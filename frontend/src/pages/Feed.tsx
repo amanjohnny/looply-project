@@ -8,20 +8,11 @@ const mediaOptions = ['✨', '📸', '📝', '🎯', '🔥'];
 export default function Feed() {
   const { user, posts, stories, togglePostLike, setCurrentPage, openUserProfile, likedPostIds, openComments, openStoryViewer } = useAppStore();
   const [savedPosts, setSavedPosts] = useState<string[]>([]);
-  const [postDraft, setPostDraft] = useState('');
-  const [postMedia, setPostMedia] = useState('');
-  const [selectedChallengeId, setSelectedChallengeId] = useState('');
-  const [postFeedback, setPostFeedback] = useState('');
-
-  const [storyCaption, setStoryCaption] = useState('');
-  const [storyMedia, setStoryMedia] = useState('✨');
-  const [storyFeedback, setStoryFeedback] = useState('');
-
-  const challengeOptions = useMemo(() => challenges.slice(0, 4), [challenges]);
+  const safeStories = stories || [];
 
   const formatTime = (date: Date) => {
     const now = new Date();
-    const diff = now.getTime() - date.getTime();
+    const diff = Math.max(0, now.getTime() - date.getTime());
     const hours = Math.floor(diff / 3600000);
     const minutes = Math.floor(diff / 60000);
     if (hours > 0) return `${hours}h`;
@@ -56,7 +47,7 @@ export default function Feed() {
             <p className="text-xs text-gray-500 mt-1">Story</p>
           </div>
 
-          {stories.map((story) => (
+          {safeStories.map((story) => (
             <div key={story.id} className="flex-shrink-0 text-center cursor-pointer" onClick={() => openStoryViewer(story.id)}>
               <div className={`w-16 h-16 rounded-full p-0.5 ${story.userId === user.id || !story.hasViewed ? 'story-ring' : ''}`}>
                 <div className={`w-full h-full rounded-full flex items-center justify-center text-2xl ${story.hasViewed ? 'bg-gray-100' : 'bg-white border-2 border-white'}`}>{story.media || story.avatar}</div>
