@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { useAppStore } from './store/useAppStore';
 import { AnimatePresence, motion } from 'framer-motion';
 
@@ -9,9 +8,13 @@ import Cases from './pages/Cases';
 import Profile from './pages/Profile';
 import Challenges from './pages/Challenges';
 import Groups from './pages/Groups';
+import UserProfile from './pages/UserProfile';
+import EditProfile from './pages/EditProfile';
+import Settings from './pages/Settings';
+import Comments from './pages/Comments';
 
 // Icons
-import { Home, Compass, Box, User, List, Users } from 'lucide-react';
+import { Home, Box, User, List, Users } from 'lucide-react';
 
 const navItems = [
   { id: 'feed', icon: Home, label: 'Home' },
@@ -28,8 +31,7 @@ const pageVariants = {
 };
 
 function App() {
-  const { currentPage, isAuthenticated, setCurrentPage, user } = useAppStore();
-  const [showCelebration, setShowCelebration] = useState(false);
+  const { currentPage, isAuthenticated, setCurrentPage } = useAppStore();
 
   // Show auth screen if not authenticated
   if (!isAuthenticated) {
@@ -43,15 +45,25 @@ function App() {
       case 'challenges':
         return <Challenges />;
       case 'cases':
-        return <Cases onShowCelebration={() => setShowCelebration(true)} />;
+        return <Cases />;
       case 'groups':
         return <Groups />;
       case 'profile':
         return <Profile />;
+      case 'userProfile':
+        return <UserProfile />;
+      case 'editProfile':
+        return <EditProfile />;
+      case 'settings':
+        return <Settings />;
+      case 'comments':
+        return <Comments />;
       default:
         return <Feed />;
     }
   };
+
+  const hideBottomNav = ['editProfile', 'userProfile', 'settings', 'comments'].includes(currentPage);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -71,7 +83,7 @@ function App() {
       </AnimatePresence>
 
       {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-xl border-t border-gray-100 z-50 safe-area-bottom">
+      {!hideBottomNav && <nav className="fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-xl border-t border-gray-100 z-50 safe-area-bottom">
         <div className="flex justify-around items-center max-w-md mx-auto px-2 py-2">
           {navItems.map((item) => {
             const Icon = item.icon;
@@ -104,37 +116,7 @@ function App() {
             );
           })}
         </div>
-      </nav>
-
-      {/* Celebration Modal */}
-      <AnimatePresence>
-        {showCelebration && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          >
-            <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setShowCelebration(false)} />
-            <motion.div
-              initial={{ scale: 0, rotate: -180 }}
-              animate={{ scale: 1, rotate: 0 }}
-              transition={{ type: 'spring', duration: 0.5 }}
-              className="relative z-10 bg-white rounded-3xl p-8 text-center max-w-sm mx-4"
-            >
-              <div className="text-6xl mb-4">🎉</div>
-              <h2 className="text-2xl font-bold gradient-text mb-2">Amazing!</h2>
-              <p className="text-gray-500 mb-6">You got a new collectible!</p>
-              <button 
-                onClick={() => setShowCelebration(false)}
-                className="w-full py-3 bg-gradient-to-r from-primary-500 to-pink-500 text-white rounded-xl font-semibold"
-              >
-                Awesome!
-              </button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      </nav>}
     </div>
   );
 }
