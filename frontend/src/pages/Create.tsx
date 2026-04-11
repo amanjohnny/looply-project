@@ -73,8 +73,9 @@ export default function Create() {
           <button onClick={() => setMode('story')} className={`rounded-xl py-2 text-sm font-semibold ${mode === 'story' ? 'bg-white text-gray-900 shadow-soft' : 'text-gray-500'}`}>Create Story</button>
         </div>
 
-        {mode === 'post' ? (
-          <div className="bg-white rounded-3xl p-4 shadow-card space-y-4">
+        <AnimatePresence mode="wait">
+          {mode === 'post' ? (
+            <motion.div key="post-mode" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="bg-white rounded-3xl p-4 shadow-card space-y-4">
             <div className="flex items-start gap-3">
               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-200 to-pink-200 flex items-center justify-center text-xl">{user.avatar}</div>
               <textarea
@@ -124,9 +125,9 @@ export default function Create() {
                 )}
               </div>
             </div>
-          </div>
-        ) : (
-          <div className="bg-white rounded-3xl p-4 shadow-card space-y-3">
+            </motion.div>
+          ) : (
+            <motion.div key="story-mode" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="bg-white rounded-3xl p-4 shadow-card space-y-3">
             <p className="text-sm font-semibold text-gray-800">Story caption</p>
             <textarea
               value={storyCaption}
@@ -146,8 +147,9 @@ export default function Create() {
               </select>
               <button onClick={handleCreateStory} className="rounded-lg bg-gradient-to-r from-primary-500 to-pink-500 px-3 py-2 text-xs font-semibold text-white">Publish Story</button>
             </div>
-          </div>
-        )}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       <AnimatePresence>

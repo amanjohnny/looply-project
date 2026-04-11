@@ -14,6 +14,7 @@ import type {
   Story,
   DirectThread,
   DirectMessage,
+  GroupMessage,
 } from '../types';
 
 interface AppState {
@@ -54,8 +55,12 @@ interface AppState {
   // Groups
   groups: Group[];
   selectedGroup: Group | null;
+  groupMessagesById: Record<string, GroupMessage[]>;
   directThreads: DirectThread[];
   activeDirectThreadId: string | null;
+  activeGroupChatId: string | null;
+  directChatBackgroundByThreadId: Record<string, string>;
+  groupChatBackgroundByGroupId: Record<string, string>;
   communityUsers: User[];
   selectedUser: User | null;
   userCollectibleShowcase: Record<string, Collectible[]>;
@@ -85,9 +90,16 @@ interface AppState {
   addCollectible: (collectible: Collectible) => void;
   selectGroup: (group: Group | null) => void;
   createGroup: (payload: { name: string; description: string; avatar: string }) => { ok: boolean; error?: string };
+  updateGroupMeta: (groupId: string, payload: { rules?: string; adminIdToAdd?: string }) => void;
+  openGroupChat: (groupId: string) => void;
+  closeGroupChat: () => void;
+  sendGroupMessage: (groupId: string, payload: { content: string; type: GroupMessage['type'] }) => { ok: boolean; error?: string };
+  inviteMemberToGroup: (groupId: string) => void;
   openDirectThread: (userId: string) => void;
   closeDirectThread: () => void;
   sendDirectMessage: (threadId: string, payload: { content: string; type: DirectMessage['type'] }) => { ok: boolean; error?: string };
+  setDirectChatBackground: (threadId: string, background: string) => void;
+  setGroupChatBackground: (groupId: string, background: string) => void;
   openUserProfile: (userId: string) => void;
   openEditProfile: () => void;
   openSettings: () => void;
@@ -149,10 +161,29 @@ const mockStories: Story[] = [
 ];
 
 const mockGroups: Group[] = [
-  { id: '1', name: 'Study Buddies', description: 'A supportive group for academic success', avatar: '📚', memberCount: 156, challengesCreated: 45, ownerId: 'u1' },
-  { id: '2', name: 'Math Wizards', description: 'For those who love mathematics', avatar: '➗', memberCount: 89, challengesCreated: 32, ownerId: 'u2' },
-  { id: '3', name: 'Book Lovers', description: 'Reading and sharing great books', avatar: '📖', memberCount: 234, challengesCreated: 67, ownerId: 'u3' },
-  { id: '4', name: 'Science Club', description: 'Explore the wonders of science', avatar: '🔬', memberCount: 178, challengesCreated: 54, ownerId: 'u4' },
+  { id: '1', name: 'Study Buddies', description: 'A supportive group for academic success', avatar: '📚', memberCount: 156, challengesCreated: 45, ownerId: 'u1', isPrivate: false, adminIds: ['u1'], rules: 'Be respectful and post your real progress.' },
+  { id: '2', name: 'Math Wizards', description: 'For those who love mathematics', avatar: '➗', memberCount: 89, challengesCreated: 32, ownerId: 'u2', isPrivate: false, adminIds: ['u2'], rules: 'Help others learn, no answer dumping.' },
+  { id: '3', name: 'Book Lovers', description: 'Reading and sharing great books', avatar: '📖', memberCount: 234, challengesCreated: 67, ownerId: 'u3', isPrivate: true, adminIds: ['u3'], rules: 'Spoiler-tag major reveals.' },
+  { id: '4', name: 'Science Club', description: 'Explore the wonders of science', avatar: '🔬', memberCount: 178, challengesCreated: 54, ownerId: 'u4', isPrivate: false, adminIds: ['u4'], rules: 'Safety first when sharing experiments.' },
+];
+
+const mockGroupMessagesById: Record<string, GroupMessage[]> = {
+  '1': [
+    { id: 'g1-1', groupId: '1', senderId: 'u2', type: 'text', content: 'Who is joining tonight focus sprint?', createdAt: new Date(Date.now() - 5400000) },
+    { id: 'g1-2', groupId: '1', senderId: 'u1', type: 'emoji', content: '🙋‍♂️', createdAt: new Date(Date.now() - 4800000) },
+  ],
+};
+
+const mockDirectThreads: DirectThread[] = [
+  {
+    id: 'dm-u1-u2',
+    participantIds: ['u1', 'u2'],
+    updatedAt: new Date(Date.now() - 2400000),
+    messages: [
+      { id: 'dm1', threadId: 'dm-u1-u2', senderId: 'u2', type: 'text', content: 'Finished your math challenge yet?', createdAt: new Date(Date.now() - 3000000) },
+      { id: 'dm2', threadId: 'dm-u1-u2', senderId: 'u1', type: 'emoji', content: '✅📚', createdAt: new Date(Date.now() - 2400000) },
+    ],
+  },
 ];
 
 const mockDirectThreads: DirectThread[] = [
@@ -285,8 +316,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   lastOpenRewards: [],
   groups: mockGroups,
   selectedGroup: null,
+  groupMessagesById: mockGroupMessagesById,
   directThreads: mockDirectThreads,
   activeDirectThreadId: null,
+  activeGroupChatId: null,
+  directChatBackgroundByThreadId: {},
+  groupChatBackgroundByGroupId: {},
   communityUsers: mockCommunityUsers,
   selectedUser: null,
   userCollectibleShowcase: { ...mockCollectibleShowcase, u1: [] },
@@ -526,6 +561,9 @@ export const useAppStore = create<AppState>((set, get) => ({
           memberCount: 1,
           challengesCreated: 0,
           ownerId: state.user.id,
+          isPrivate: false,
+          adminIds: [state.user.id],
+          rules: 'Be respectful and stay on topic.',
         },
         ...state.groups,
       ],
@@ -534,11 +572,60 @@ export const useAppStore = create<AppState>((set, get) => ({
     return { ok: true };
   },
 
+  updateGroupMeta: (groupId, payload) =>
+    set((state) => ({
+      groups: state.groups.map((group) => {
+        if (group.id !== groupId) return group;
+        const nextAdmins = payload.adminIdToAdd
+          ? Array.from(new Set([...(group.adminIds || [group.ownerId]), payload.adminIdToAdd]))
+          : group.adminIds;
+        return {
+          ...group,
+          adminIds: nextAdmins,
+          rules: payload.rules ?? group.rules,
+        };
+      }),
+    })),
+
+  openGroupChat: (groupId) => set({ activeGroupChatId: groupId, selectedGroup: null }),
+  closeGroupChat: () => set({ activeGroupChatId: null }),
+
+  sendGroupMessage: (groupId, payload) => {
+    const trimmed = payload.content.trim();
+    if (!trimmed) return { ok: false, error: 'Message cannot be empty.' };
+
+    set((state) => ({
+      groupMessagesById: {
+        ...state.groupMessagesById,
+        [groupId]: [
+          ...(state.groupMessagesById[groupId] || []),
+          {
+            id: `${groupId}-${Date.now()}`,
+            groupId,
+            senderId: state.user.id,
+            type: payload.type,
+            content: trimmed,
+            createdAt: new Date(),
+          },
+        ],
+      },
+    }));
+
+    return { ok: true };
+  },
+
+  inviteMemberToGroup: (groupId) =>
+    set((state) => ({
+      groups: state.groups.map((group) =>
+        group.id === groupId ? { ...group, memberCount: group.memberCount + 1 } : group,
+      ),
+    })),
+
   openDirectThread: (userId) =>
     set((state) => {
       if (userId === state.user.id) return {};
       const existing = state.directThreads.find((thread) => thread.participantIds.includes(state.user.id) && thread.participantIds.includes(userId));
-      if (existing) return { activeDirectThreadId: existing.id };
+      if (existing) return { activeDirectThreadId: existing.id, activeGroupChatId: null };
 
       const thread: DirectThread = {
         id: `dm-${state.user.id}-${userId}-${Date.now()}`,
@@ -549,6 +636,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       return {
         directThreads: [thread, ...state.directThreads],
         activeDirectThreadId: thread.id,
+        activeGroupChatId: null,
       };
     }),
 
@@ -579,6 +667,22 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     return { ok: true };
   },
+
+  setDirectChatBackground: (threadId, background) =>
+    set((state) => ({
+      directChatBackgroundByThreadId: {
+        ...state.directChatBackgroundByThreadId,
+        [threadId]: background,
+      },
+    })),
+
+  setGroupChatBackground: (groupId, background) =>
+    set((state) => ({
+      groupChatBackgroundByGroupId: {
+        ...state.groupChatBackgroundByGroupId,
+        [groupId]: background,
+      },
+    })),
 
   openUserProfile: (userId) =>
     set((state) => {

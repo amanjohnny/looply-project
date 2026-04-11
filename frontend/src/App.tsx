@@ -30,7 +30,7 @@ const pageVariants = {
 };
 
 function App() {
-  const { currentPage, isAuthenticated, setCurrentPage, storyViewerOpen } = useAppStore();
+  const { currentPage, isAuthenticated, setCurrentPage, storyViewerOpen, activeDirectThreadId, activeGroupChatId } = useAppStore();
 
   if (!isAuthenticated) return <Auth />;
 
@@ -59,7 +59,7 @@ function App() {
     }
   };
 
-  const hideBottomNav = ['editProfile', 'userProfile', 'settings', 'comments'].includes(currentPage) || storyViewerOpen;
+  const hideBottomNav = ['editProfile', 'userProfile', 'settings', 'comments'].includes(currentPage) || storyViewerOpen || Boolean(activeDirectThreadId) || Boolean(activeGroupChatId);
 
   return (
     <div className="min-h-screen bg-gray-50">

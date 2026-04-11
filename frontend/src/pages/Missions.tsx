@@ -1,6 +1,7 @@
 import Challenges from './Challenges';
 import Cases from './Cases';
 import { useAppStore } from '../store/useAppStore';
+import { AnimatePresence, motion } from 'framer-motion';
 
 export default function Missions() {
   const { missionsTab: tab, setMissionsTab } = useAppStore();
@@ -18,7 +19,11 @@ export default function Missions() {
           </button>
         </div>
       </div>
-      {tab === 'tasks' ? <Challenges /> : <Cases />}
+      <AnimatePresence mode="wait">
+        <motion.div key={tab} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
+          {tab === 'tasks' ? <Challenges /> : <Cases />}
+        </motion.div>
+      </AnimatePresence>
     </div>
   );
 }

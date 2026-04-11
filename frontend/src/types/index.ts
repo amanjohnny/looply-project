@@ -93,6 +93,34 @@ export interface Group {
   memberCount: number;
   challengesCreated: number;
   ownerId: string;
+  isPrivate?: boolean;
+  adminIds?: string[];
+  rules?: string;
+}
+
+export interface DirectMessage {
+  id: string;
+  threadId: string;
+  senderId: string;
+  type: 'text' | 'emoji' | 'sticker' | 'image' | 'video' | 'audio' | 'document' | 'gift';
+  content: string;
+  createdAt: Date;
+}
+
+export interface DirectThread {
+  id: string;
+  participantIds: [string, string];
+  messages: DirectMessage[];
+  updatedAt: Date;
+}
+
+export interface GroupMessage {
+  id: string;
+  groupId: string;
+  senderId: string;
+  type: 'text' | 'emoji' | 'sticker' | 'image' | 'video' | 'audio';
+  content: string;
+  createdAt: Date;
 }
 
 export interface DirectMessage {

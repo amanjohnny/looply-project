@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import type { Rarity, Collectible } from '../types';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Settings, Edit, Star, Zap, Flame, Trophy, Target, Award } from 'lucide-react';
 
 const rarityConfig: Record<Rarity, { color: string; bg: string; border: string; glow: string }> = {
@@ -76,8 +76,9 @@ export default function Profile() {
             <button onClick={() => setTab('collection')} className={`rounded-xl py-2 text-sm font-semibold ${tab === 'collection' ? 'bg-white text-gray-900 shadow-soft' : 'text-gray-500'}`}>Collection</button>
           </div>
 
-          {tab === 'activity' ? (
-            <div className="space-y-5">
+          <AnimatePresence mode="wait">
+            {tab === 'activity' ? (
+              <motion.div key="activity" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="space-y-5">
               <div>
                 <h3 className="text-sm font-semibold text-gray-900 mb-2">Stories</h3>
                 {myStories.length === 0 ? <p className="text-sm text-gray-500">No stories yet.</p> : (
@@ -105,9 +106,9 @@ export default function Profile() {
                   </div>
                 )}
               </div>
-            </div>
-          ) : (
-            <div>
+              </motion.div>
+            ) : (
+              <motion.div key="collection" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
               <div className="flex items-center justify-between mb-2">
                 <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2"><Award className="text-yellow-500" size={20} />Looply Collection</h3>
                 <span className="text-xs text-gray-400">{showcaseCollectibles.length} items</span>
@@ -134,8 +135,9 @@ export default function Profile() {
                   })}
                 </div>
               )}
-            </div>
-          )}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
     </div>
