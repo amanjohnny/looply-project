@@ -198,6 +198,13 @@ export default function Chats() {
     return communityUsers.find((profile) => profile.id === otherId) || null;
   }, [activeThread, communityUsers, user.id]);
 
+  const activeThread = useMemo(() => directThreads.find((thread) => thread.id === activeDirectThreadId) || null, [directThreads, activeDirectThreadId]);
+  const activeThreadUser = useMemo(() => {
+    if (!activeThread) return null;
+    const otherId = activeThread.participantIds.find((id) => id !== user.id);
+    return communityUsers.find((profile) => profile.id === otherId) || null;
+  }, [activeThread, communityUsers, user.id]);
+
   const activeGroup = useMemo(() => groups.find((group) => group.id === activeGroupChatId) || null, [groups, activeGroupChatId]);
   const activeGroupMessages = useMemo(() => (activeGroup ? groupMessagesById[activeGroup.id] || [] : []), [activeGroup, groupMessagesById]);
 
@@ -465,6 +472,16 @@ export default function Chats() {
               </div>
               <p className="text-gray-600 mb-6">{selectedGroup.description}</p>
               <button onClick={() => openGroupChat(selectedGroup.id)} className="w-full py-3 rounded-xl bg-gradient-to-r from-primary-500 to-pink-500 text-white font-medium">Open Group Chat</button>
+
+              <div className="grid grid-cols-2 gap-3 mb-6">
+                <div className="bg-gray-50 rounded-xl p-4 text-center"><div className="text-2xl font-bold text-primary-600">{selectedGroup.challengesCreated}</div><div className="text-xs text-gray-500">Challenges</div></div>
+                <div className="bg-gray-50 rounded-xl p-4 text-center"><div className="text-2xl font-bold text-pink-600">{selectedGroup.memberCount}</div><div className="text-xs text-gray-500">Members</div></div>
+              </div>
+
+              <div className="space-y-3">
+                <button className="w-full py-3 rounded-xl bg-gradient-to-r from-primary-500 to-pink-500 text-white font-medium flex items-center justify-center gap-2"><Plus size={18} />Send Message</button>
+                <button className="w-full py-3 rounded-xl bg-gray-100 text-gray-700 font-medium flex items-center justify-center gap-2"><UserPlus size={18} />Invite People</button>
+              </div>
             </motion.div>
           </motion.div>
         )}

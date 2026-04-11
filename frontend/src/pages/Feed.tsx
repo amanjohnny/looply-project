@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { Heart, MessageCircle, Send, Bookmark, MoreHorizontal, Award, Plus } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+
+const mediaOptions = ['✨', '📸', '📝', '🎯', '🔥'];
 
 export default function Feed() {
   const { user, posts, stories, togglePostLike, setCurrentPage, openUserProfile, likedPostIds, openComments, openStoryViewer } = useAppStore();
@@ -42,7 +44,7 @@ export default function Feed() {
             <button onClick={() => setCurrentPage('create')} className="w-16 h-16 rounded-full border-2 border-dashed border-gray-300 flex items-center justify-center hover:border-primary-400 hover:bg-primary-50/50 transition-all group">
               <Plus className="text-gray-400 group-hover:text-primary-500" />
             </button>
-            <p className="text-xs text-gray-500 mt-1">Add</p>
+            <p className="text-xs text-gray-500 mt-1">Story</p>
           </div>
 
           {safeStories.map((story) => (
