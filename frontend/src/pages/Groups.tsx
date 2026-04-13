@@ -463,7 +463,6 @@ export default function Chats() {
     openStoryViewer,
     challengeRequests,
   } = useAppStore();
-  const challengeRequests = useAppStore((state) => state.challengeRequests || []);
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showDirectDetails, setShowDirectDetails] = useState(false);
