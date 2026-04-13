@@ -55,6 +55,7 @@ export interface Story {
   caption: string;
   media?: string;
   hasViewed: boolean;
+  groupId?: string;
   createdAt: Date;
 }
 
@@ -93,6 +94,9 @@ export interface Group {
   memberCount: number;
   challengesCreated: number;
   ownerId: string;
+  username: string;
+  inviteCode: string;
+  memberIds?: string[];
   isPrivate?: boolean;
   adminIds?: string[];
   rules?: string;
