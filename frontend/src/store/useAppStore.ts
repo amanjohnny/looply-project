@@ -89,7 +89,7 @@ interface AppState {
   setLastOpenRewards: (rewards: CaseReward[]) => void;
   addCollectible: (collectible: Collectible) => void;
   selectGroup: (group: Group | null) => void;
-  createGroup: (payload: { name: string; description: string; avatar: string }) => { ok: boolean; error?: string };
+  createGroup: (payload: { name: string; description: string; avatar: string; username?: string }) => { ok: boolean; error?: string };
   updateGroupMeta: (groupId: string, payload: { rules?: string; adminIdToAdd?: string }) => void;
   openGroupChat: (groupId: string) => void;
   closeGroupChat: () => void;
@@ -160,11 +160,24 @@ const mockStories: Story[] = [
   { id: 's4', userId: 'u4', username: 'MusicKid', avatar: '🎵', caption: 'Practice set complete', media: '🎹', hasViewed: false, createdAt: new Date(Date.now() - 9600000) },
 ];
 
+
+const normalizeGroupUsername = (value: string) => value.trim().toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 20);
+
+const createUniqueInviteCode = (existingCodes: string[]) => {
+  let tries = 0;
+  while (tries < 20) {
+    const candidate = `GL-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+    if (!existingCodes.includes(candidate)) return candidate;
+    tries += 1;
+  }
+  return `GL-${Date.now().toString(36).slice(-4).toUpperCase()}`;
+};
+
 const mockGroups: Group[] = [
-  { id: '1', name: 'Study Buddies', description: 'A supportive group for academic success', avatar: '📚', memberCount: 156, challengesCreated: 45, ownerId: 'u1', isPrivate: false, adminIds: ['u1'], rules: 'Be respectful and post your real progress.' },
-  { id: '2', name: 'Math Wizards', description: 'For those who love mathematics', avatar: '➗', memberCount: 89, challengesCreated: 32, ownerId: 'u2', isPrivate: false, adminIds: ['u2'], rules: 'Help others learn, no answer dumping.' },
-  { id: '3', name: 'Book Lovers', description: 'Reading and sharing great books', avatar: '📖', memberCount: 234, challengesCreated: 67, ownerId: 'u3', isPrivate: true, adminIds: ['u3'], rules: 'Spoiler-tag major reveals.' },
-  { id: '4', name: 'Science Club', description: 'Explore the wonders of science', avatar: '🔬', memberCount: 178, challengesCreated: 54, ownerId: 'u4', isPrivate: false, adminIds: ['u4'], rules: 'Safety first when sharing experiments.' },
+  { id: '1', name: 'Study Buddies', description: 'A supportive group for academic success', avatar: '📚', memberCount: 156, challengesCreated: 45, ownerId: 'u1', username: 'studybuddies', inviteCode: 'GL-BUD1', isPrivate: false, adminIds: ['u1'], rules: 'Be respectful and post your real progress.' },
+  { id: '2', name: 'Math Wizards', description: 'For those who love mathematics', avatar: '➗', memberCount: 89, challengesCreated: 32, ownerId: 'u2', username: 'mathwizards', inviteCode: 'GL-MATH', isPrivate: false, adminIds: ['u2'], rules: 'Help others learn, no answer dumping.' },
+  { id: '3', name: 'Book Lovers', description: 'Reading and sharing great books', avatar: '📖', memberCount: 234, challengesCreated: 67, ownerId: 'u3', username: 'booklovers', inviteCode: 'GL-BOOK', isPrivate: true, adminIds: ['u3'], rules: 'Spoiler-tag major reveals.' },
+  { id: '4', name: 'Science Club', description: 'Explore the wonders of science', avatar: '🔬', memberCount: 178, challengesCreated: 54, ownerId: 'u4', username: 'scienceclub', inviteCode: 'GL-SCI1', isPrivate: false, adminIds: ['u4'], rules: 'Safety first when sharing experiments.' },
 ];
 
 const mockGroupMessagesById: Record<string, GroupMessage[]> = {
@@ -535,12 +548,22 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   selectGroup: (group) => set({ selectedGroup: group }),
 
-  createGroup: ({ name, description, avatar }) => {
+  createGroup: ({ name, description, avatar, username }) => {
     const groupName = name.trim();
     const groupDescription = description.trim();
     if (!groupName) return { ok: false, error: 'Group name is required.' };
 
-    set((state) => ({
+    const state = get();
+    const nextUsernameRaw = username?.trim() || groupName;
+    const nextUsername = normalizeGroupUsername(nextUsernameRaw);
+    if (!nextUsername || nextUsername.length < 3) return { ok: false, error: 'Group username must be at least 3 characters.' };
+
+    const usernameTaken = state.groups.some((group) => group.username.toLowerCase() === nextUsername);
+    if (usernameTaken) return { ok: false, error: 'That group username is already taken.' };
+
+    const inviteCode = createUniqueInviteCode(state.groups.map((group) => group.inviteCode));
+
+    set((curr) => ({
       groups: [
         {
           id: `g-${Date.now()}`,
@@ -549,12 +572,14 @@ export const useAppStore = create<AppState>((set, get) => ({
           avatar: avatar || '👥',
           memberCount: 1,
           challengesCreated: 0,
-          ownerId: state.user.id,
+          ownerId: curr.user.id,
+          username: nextUsername,
+          inviteCode,
           isPrivate: false,
-          adminIds: [state.user.id],
+          adminIds: [curr.user.id],
           rules: 'Be respectful and stay on topic.',
         },
-        ...state.groups,
+        ...curr.groups,
       ],
     }));
 
