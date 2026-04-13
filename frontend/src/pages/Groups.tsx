@@ -528,7 +528,6 @@ export default function Chats() {
       : `${request.reward.collectibleImage} ${request.reward.collectibleName}`;
   };
 
-
   const scrollToBottom = (target: 'dm' | 'group') => {
     const el = target === 'dm' ? dmScrollRef.current : groupScrollRef.current;
     if (!el) return;
