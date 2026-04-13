@@ -257,20 +257,23 @@ function GroupProfileSheet({ group, messages, onClose, onOpenStory, onGoToMessag
   const [descriptionDraft, setDescriptionDraft] = useState(group.description || '');
   const [storyDraft, setStoryDraft] = useState('');
 
-  const groupStories = stories.filter((story) => story.groupId === group.id || group.adminIds?.includes(story.userId) || story.userId === group.ownerId);
-  const messageById = new Map(messages.map((message) => [message.id, message]));
+  const safeStories = Array.isArray(stories) ? stories : [];
+  const safeCommunityUsers = Array.isArray(communityUsers) ? communityUsers : [];
+  const safeMessages = Array.isArray(messages) ? messages : [];
+  const groupStories = safeStories.filter((story) => story.groupId === group.id || group.adminIds?.includes(story.userId) || story.userId === group.ownerId);
+  const messageById = new Map(safeMessages.map((message) => [message.id, message]));
   const pinnedMessages = (pinnedGroupMessageIds[group.id] || []).map((id) => messageById.get(id)).filter(Boolean) as GroupMessage[];
-  const mediaItems = messages.filter((message) => ['image', 'video', 'sticker'].includes(message.type));
-  const linkItems = messages.filter((message) => /(https?:\/\/\S+)/i.test(message.content));
-  const fileItems = messages.filter((message) => ['document', 'gift'].includes(message.type) || /document/i.test(message.content));
+  const mediaItems = safeMessages.filter((message) => ['image', 'video', 'sticker'].includes(message.type));
+  const linkItems = safeMessages.filter((message) => /(https?:\/\/\S+)/i.test(message.content));
+  const fileItems = safeMessages.filter((message) => ['document', 'gift'].includes(message.type) || /document/i.test(message.content));
 
-  const owner = communityUsers.find((member) => member.id === group.ownerId);
+  const owner = safeCommunityUsers.find((member) => member.id === group.ownerId);
   const memberIds = group.memberIds || [group.ownerId];
-  const admins = communityUsers.filter((member) => group.adminIds?.includes(member.id));
-  const members = communityUsers.filter((member) => memberIds.includes(member.id));
+  const admins = safeCommunityUsers.filter((member) => group.adminIds?.includes(member.id));
+  const members = safeCommunityUsers.filter((member) => memberIds.includes(member.id));
   const canManage = group.ownerId === user.id || group.adminIds?.includes(user.id);
 
-  const pickerCandidates = communityUsers.filter((member) => {
+  const pickerCandidates = safeCommunityUsers.filter((member) => {
     const query = pickerSearch.trim().toLowerCase();
     const match = !query || member.displayName.toLowerCase().includes(query) || member.username.toLowerCase().includes(query);
     if (!match) return false;
@@ -291,8 +294,12 @@ function GroupProfileSheet({ group, messages, onClose, onOpenStory, onGoToMessag
     setActionFeedback('Group story added.');
   };
 
-  const formatTime = (date: Date) => {
-    const diff = Date.now() - date.getTime();
+  const formatTime = (value: Date | string | number | null | undefined) => {
+    if (value == null) return 'Unknown time';
+    const date = value instanceof Date ? value : new Date(value);
+    const timestamp = date.getTime();
+    if (Number.isNaN(timestamp)) return 'Unknown time';
+    const diff = Date.now() - timestamp;
     const min = Math.max(1, Math.floor(diff / 60000));
     if (min < 60) return `${min}m ago`;
     const hr = Math.floor(min / 60);
@@ -367,10 +374,10 @@ function GroupProfileSheet({ group, messages, onClose, onOpenStory, onGoToMessag
             {contentItems.length === 0 ? <p className="text-xs text-gray-500">No {browserTab} items yet.</p> : (
               <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
                 {contentItems.map((item) => {
-                  const sender = communityUsers.find((member) => member.id === item.senderId);
+                  const sender = safeCommunityUsers.find((member) => member.id === item.senderId);
                   return (
                     <div key={item.id} className="rounded-xl border border-gray-100 bg-gray-50 p-2">
-                      <p className="text-xs font-medium text-gray-700">{item.content}</p>
+                      <p className="text-xs font-medium text-gray-700">{item.content || 'Shared item'}</p>
                       <p className="mt-1 text-[11px] text-gray-500">{sender?.displayName || 'Member'} • {formatTime(item.createdAt)}</p>
                       <button onClick={() => { onGoToMessage(item.id); onClose(); }} className="mt-1 text-[11px] text-primary-600">Go to message</button>
                     </div>
@@ -463,6 +470,7 @@ export default function Chats() {
     openStoryViewer,
     challengeRequests,
   } = useAppStore();
+  const safeChallengeRequests = useMemo(() => Array.isArray(challengeRequests) ? challengeRequests : [], [challengeRequests]);
 
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showDirectDetails, setShowDirectDetails] = useState(false);
@@ -518,13 +526,20 @@ export default function Chats() {
 
   const activeGroup = useMemo(() => groups.find((group) => group.id === activeGroupChatId) || null, [groups, activeGroupChatId]);
   const activeGroupMessages = useMemo(() => (activeGroup ? groupMessagesById[activeGroup.id] || [] : []), [activeGroup, groupMessagesById]);
-  const challengeRequestById = useMemo(() => Object.fromEntries(challengeRequests.map((request) => [request.id, request])), [challengeRequests]);
+  const challengeRequestById = useMemo(
+    () => Object.fromEntries(safeChallengeRequests.filter((request) => request?.id).map((request) => [request.id, request])),
+    [safeChallengeRequests],
+  );
   const formatChallengeReward = (requestId: string) => {
     const request = challengeRequestById[requestId];
     if (!request) return '';
-    return request.reward.kind === 'coins'
-      ? `${request.reward.amount} coins`
-      : `${request.reward.collectibleImage} ${request.reward.collectibleName}`;
+    const reward = request.reward;
+    if (!reward) return 'Reward details unavailable';
+    if (reward.kind === 'coins') {
+      const amount = typeof reward.amount === 'number' ? reward.amount : 0;
+      return `${amount} coins`;
+    }
+    return `${reward.collectibleImage || '🎁'} ${reward.collectibleName || 'Collectible reward'}`;
   };
 
   const scrollToBottom = (target: 'dm' | 'group') => {
@@ -653,15 +668,17 @@ export default function Chats() {
             return (
               <motion.div data-message-id={message.id} key={message.id} initial={{ opacity: 0, y: 22, scale: 0.9 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ delay: Math.min(index * 0.05, 0.28), type: 'spring', stiffness: 300, damping: 17, mass: 0.62 }} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm transition-colors ${highlightedMessageId === message.id ? 'ring-2 ring-primary-300' : ''} ${mine ? 'bg-primary-500 text-white' : 'bg-white border border-gray-200 text-gray-800'}`}>
-                  {message.type === 'challenge_request' && message.challengeRequestId && challengeRequestById[message.challengeRequestId] ? (
-                    <div className="space-y-1">
-                      <p className={`text-[10px] font-semibold uppercase ${mine ? 'text-primary-100' : 'text-primary-600'}`}>Challenge Request</p>
-                      <p className="font-medium">{challengeRequestById[message.challengeRequestId].title}</p>
-                      <p className={`text-[11px] ${mine ? 'text-primary-100' : 'text-gray-500'}`}>{formatChallengeReward(message.challengeRequestId)}</p>
-                    </div>
-                  ) : (
-                    <p>{message.content}</p>
-                  )}
+                  {(() => {
+                    const challengeRequest = message.challengeRequestId ? challengeRequestById[message.challengeRequestId] : undefined;
+                    if (message.type !== 'challenge_request') return <p>{message.content}</p>;
+                    return (
+                      <div className="space-y-1">
+                        <p className={`text-[10px] font-semibold uppercase ${mine ? 'text-primary-100' : 'text-primary-600'}`}>Challenge Request</p>
+                        <p className="font-medium">{challengeRequest?.title || message.content || 'Challenge request'}</p>
+                        <p className={`text-[11px] ${mine ? 'text-primary-100' : 'text-gray-500'}`}>{message.challengeRequestId ? formatChallengeReward(message.challengeRequestId) : 'Reward details unavailable'}</p>
+                      </div>
+                    );
+                  })()}
                   <p className={`mt-1 text-[10px] ${mine ? 'text-primary-100' : 'text-gray-400'}`}>{message.type}</p>
                 </div>
               </motion.div>
@@ -745,15 +762,17 @@ export default function Chats() {
             return (
               <motion.div data-message-id={message.id} key={message.id} initial={{ opacity: 0, y: 22, scale: 0.9 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ delay: Math.min(index * 0.05, 0.28), type: 'spring', stiffness: 300, damping: 17, mass: 0.62 }} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm transition-colors ${highlightedMessageId === message.id ? 'ring-2 ring-primary-300' : ''} ${mine ? 'bg-primary-500 text-white' : 'bg-white border border-gray-200 text-gray-800'}`}>
-                  {message.type === 'challenge_request' && message.challengeRequestId && challengeRequestById[message.challengeRequestId] ? (
-                    <div className="space-y-1">
-                      <p className={`text-[10px] font-semibold uppercase ${mine ? 'text-primary-100' : 'text-primary-600'}`}>Challenge Request</p>
-                      <p className="font-medium">{challengeRequestById[message.challengeRequestId].title}</p>
-                      <p className={`text-[11px] ${mine ? 'text-primary-100' : 'text-gray-500'}`}>{formatChallengeReward(message.challengeRequestId)}</p>
-                    </div>
-                  ) : (
-                    <p>{message.content}</p>
-                  )}
+                  {(() => {
+                    const challengeRequest = message.challengeRequestId ? challengeRequestById[message.challengeRequestId] : undefined;
+                    if (message.type !== 'challenge_request') return <p>{message.content}</p>;
+                    return (
+                      <div className="space-y-1">
+                        <p className={`text-[10px] font-semibold uppercase ${mine ? 'text-primary-100' : 'text-primary-600'}`}>Challenge Request</p>
+                        <p className="font-medium">{challengeRequest?.title || message.content || 'Challenge request'}</p>
+                        <p className={`text-[11px] ${mine ? 'text-primary-100' : 'text-gray-500'}`}>{message.challengeRequestId ? formatChallengeReward(message.challengeRequestId) : 'Reward details unavailable'}</p>
+                      </div>
+                    );
+                  })()}
                   <div className="mt-1 flex items-center justify-between gap-2">
                     <p className={`text-[10px] ${mine ? 'text-primary-100' : 'text-gray-400'}`}>{message.type}</p>
                     {canPinMessages && (
