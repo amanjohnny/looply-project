@@ -4,9 +4,25 @@ import { Heart, MessageCircle, Send, Bookmark, MoreHorizontal, Award, Plus, Trop
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function Feed() {
-  const { user, posts, stories, togglePostLike, setCurrentPage, openUserProfile, likedPostIds, openComments, openStoryViewer } = useAppStore();
+  const {
+    user,
+    posts,
+    stories,
+    togglePostLike,
+    setCurrentPage,
+    openUserProfile,
+    likedPostIds,
+    openComments,
+    openStoryViewer,
+    acceptChallengeRequest,
+    submitChallengeProof,
+    reviewChallengeSubmission,
+  } = useAppStore();
   const challengeRequests = useAppStore((state) => state.challengeRequests || []);
   const [savedPosts, setSavedPosts] = useState<string[]>([]);
+  const [proofFormById, setProofFormById] = useState<Record<string, { text: string; image: string; note: string }>>({});
+  const [showProofFormById, setShowProofFormById] = useState<Record<string, boolean>>({});
+  const [challengeFeedbackById, setChallengeFeedbackById] = useState<Record<string, string>>({});
   const safeStories = stories || [];
 
   const timeline = useMemo(() => {
@@ -70,6 +86,19 @@ export default function Feed() {
           {timeline.map((item, index) => {
             if (item.kind === 'challenge') {
               const request = item.request;
+              const statusTone = request.status === 'completed'
+                ? 'text-emerald-600 border-emerald-100'
+                : request.status === 'submitted'
+                  ? 'text-amber-600 border-amber-100'
+                  : request.status === 'accepted'
+                    ? 'text-blue-600 border-blue-100'
+                    : request.status === 'rejected'
+                      ? 'text-red-600 border-red-100'
+                      : 'text-primary-600 border-primary-100';
+              const canAccept = request.status === 'open' && request.creatorId !== user.id;
+              const canSubmitProof = request.status === 'accepted' && request.acceptedByUserId === user.id;
+              const canReview = request.status === 'submitted' && request.creatorId === user.id;
+              const proofDraft = proofFormById[request.id] || { text: '', image: '', note: '' };
               return (
                 <motion.div
                   key={request.id}
@@ -81,7 +110,7 @@ export default function Feed() {
                   <div className="rounded-3xl border border-primary-100 bg-gradient-to-br from-primary-50 via-white to-pink-50 p-4 shadow-sm">
                     <div className="flex items-center justify-between">
                       <p className="text-[11px] font-semibold uppercase tracking-wide text-primary-600">Challenge Request</p>
-                      <span className="rounded-full bg-white px-2 py-1 text-[10px] font-semibold text-primary-600 border border-primary-100">Open</span>
+                      <span className={`rounded-full bg-white px-2 py-1 text-[10px] font-semibold border capitalize ${statusTone}`}>{request.status}</span>
                     </div>
                     <div className="mt-2 flex items-center gap-2">
                       <div className="h-8 w-8 rounded-full bg-white border border-primary-100 flex items-center justify-center text-lg">{request.creatorAvatar}</div>
@@ -92,6 +121,15 @@ export default function Feed() {
                     </div>
                     <h3 className="mt-3 text-sm font-semibold text-gray-900">{request.title}</h3>
                     <p className="text-xs text-gray-600 mt-1">{request.description}</p>
+                    {request.acceptedByName && <p className="mt-2 text-[11px] text-gray-500">Accepted by {request.acceptedByAvatar || '🏅'} {request.acceptedByName}</p>}
+                    {request.proof && (
+                      <div className="mt-2 rounded-xl border border-gray-100 bg-white/80 p-2 text-[11px] text-gray-600">
+                        <p className="font-semibold text-gray-700">Proof</p>
+                        <p>{request.proof.text}</p>
+                        {request.proof.image && <p>{request.proof.image}</p>}
+                        {request.proof.note && <p className="italic">{request.proof.note}</p>}
+                      </div>
+                    )}
                     <div className="mt-3 flex items-center justify-between">
                       <span className="rounded-full bg-white px-2 py-1 text-[11px] text-gray-500 border border-gray-100">{request.category} • {request.difficulty}</span>
                       <div className="rounded-xl bg-primary-500 px-3 py-1.5 text-xs font-semibold text-white flex items-center gap-1">
@@ -99,6 +137,82 @@ export default function Feed() {
                         {request.reward.kind === 'coins' ? `${request.reward.amount} coins` : `${request.reward.collectibleImage} ${request.reward.collectibleName}`}
                       </div>
                     </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {canAccept && (
+                        <button
+                          onClick={() => {
+                            const result = acceptChallengeRequest(request.id);
+                            setChallengeFeedbackById((prev) => ({ ...prev, [request.id]: result.ok ? 'Challenge accepted.' : (result.error || 'Unable to accept.') }));
+                          }}
+                          className="rounded-lg bg-primary-500 px-3 py-1.5 text-[11px] font-semibold text-white"
+                        >
+                          Accept
+                        </button>
+                      )}
+                      {canSubmitProof && (
+                        <button onClick={() => setShowProofFormById((prev) => ({ ...prev, [request.id]: !prev[request.id] }))} className="rounded-lg bg-blue-500 px-3 py-1.5 text-[11px] font-semibold text-white">
+                          {showProofFormById[request.id] ? 'Hide Proof Form' : 'Submit Proof'}
+                        </button>
+                      )}
+                      {canReview && (
+                        <>
+                          <button
+                            onClick={() => {
+                              const result = reviewChallengeSubmission(request.id, 'approve');
+                              setChallengeFeedbackById((prev) => ({ ...prev, [request.id]: result.ok ? 'Proof approved. Reward transferred.' : (result.error || 'Unable to approve.') }));
+                            }}
+                            className="rounded-lg bg-emerald-500 px-3 py-1.5 text-[11px] font-semibold text-white"
+                          >
+                            Approve
+                          </button>
+                          <button
+                            onClick={() => {
+                              const result = reviewChallengeSubmission(request.id, 'reject');
+                              setChallengeFeedbackById((prev) => ({ ...prev, [request.id]: result.ok ? 'Proof rejected.' : (result.error || 'Unable to reject.') }));
+                            }}
+                            className="rounded-lg bg-red-500 px-3 py-1.5 text-[11px] font-semibold text-white"
+                          >
+                            Reject
+                          </button>
+                        </>
+                      )}
+                    </div>
+                    {canSubmitProof && showProofFormById[request.id] && (
+                      <div className="mt-2 space-y-2 rounded-xl border border-blue-100 bg-blue-50/40 p-2">
+                        <input
+                          value={proofDraft.text}
+                          onChange={(e) => setProofFormById((prev) => ({ ...prev, [request.id]: { ...proofDraft, text: e.target.value } }))}
+                          placeholder="Proof text"
+                          className="w-full rounded-lg border border-gray-200 px-2 py-1 text-xs"
+                        />
+                        <input
+                          value={proofDraft.image}
+                          onChange={(e) => setProofFormById((prev) => ({ ...prev, [request.id]: { ...proofDraft, image: e.target.value } }))}
+                          placeholder="Image placeholder (optional)"
+                          className="w-full rounded-lg border border-gray-200 px-2 py-1 text-xs"
+                        />
+                        <input
+                          value={proofDraft.note}
+                          onChange={(e) => setProofFormById((prev) => ({ ...prev, [request.id]: { ...proofDraft, note: e.target.value } }))}
+                          placeholder="Note (optional)"
+                          className="w-full rounded-lg border border-gray-200 px-2 py-1 text-xs"
+                        />
+                        <button
+                          onClick={() => {
+                            const result = submitChallengeProof(request.id, proofDraft);
+                            setChallengeFeedbackById((prev) => ({ ...prev, [request.id]: result.ok ? 'Proof submitted for review.' : (result.error || 'Unable to submit proof.') }));
+                            if (result.ok) {
+                              setShowProofFormById((prev) => ({ ...prev, [request.id]: false }));
+                              setProofFormById((prev) => ({ ...prev, [request.id]: { text: '', image: '', note: '' } }));
+                            }
+                          }}
+                          className="rounded-lg bg-blue-500 px-3 py-1.5 text-[11px] font-semibold text-white"
+                        >
+                          Send Proof
+                        </button>
+                      </div>
+                    )}
+                    {challengeFeedbackById[request.id] && <p className="mt-2 text-[11px] text-primary-600">{challengeFeedbackById[request.id]}</p>}
                   </div>
                 </motion.div>
               );

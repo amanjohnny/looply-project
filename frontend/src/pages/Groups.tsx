@@ -469,6 +469,9 @@ export default function Chats() {
     stories,
     openStoryViewer,
     challengeRequests,
+    acceptChallengeRequest,
+    submitChallengeProof,
+    reviewChallengeSubmission,
   } = useAppStore();
   const safeChallengeRequests = useMemo(() => Array.isArray(challengeRequests) ? challengeRequests : [], [challengeRequests]);
 
@@ -491,6 +494,9 @@ export default function Chats() {
   const [dmUnreadCount, setDmUnreadCount] = useState(0);
   const [groupUnreadCount, setGroupUnreadCount] = useState(0);
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
+  const [proofFormByRequestId, setProofFormByRequestId] = useState<Record<string, { text: string; image: string; note: string }>>({});
+  const [showProofFormByRequestId, setShowProofFormByRequestId] = useState<Record<string, boolean>>({});
+  const [challengeFeedbackByRequestId, setChallengeFeedbackByRequestId] = useState<Record<string, string>>({});
 
   const dmScreenRef = useRef<HTMLDivElement | null>(null);
   const groupScreenRef = useRef<HTMLDivElement | null>(null);
@@ -540,6 +546,92 @@ export default function Chats() {
       return `${amount} coins`;
     }
     return `${reward.collectibleImage || '🎁'} ${reward.collectibleName || 'Collectible reward'}`;
+  };
+  const renderChallengeRequestCard = (message: DirectMessage | GroupMessage, mine: boolean) => {
+    const challengeRequest = message.challengeRequestId ? challengeRequestById[message.challengeRequestId] : undefined;
+    const requestId = message.challengeRequestId || '';
+    const status = challengeRequest?.status || 'open';
+    const canAccept = !!challengeRequest && status === 'open' && challengeRequest.creatorId !== user.id;
+    const canSubmitProof = !!challengeRequest && status === 'accepted' && challengeRequest.acceptedByUserId === user.id;
+    const canReview = !!challengeRequest && status === 'submitted' && challengeRequest.creatorId === user.id;
+    const proofDraft = proofFormByRequestId[requestId] || { text: '', image: '', note: '' };
+
+    return (
+      <div className="space-y-1">
+        <p className={`text-[10px] font-semibold uppercase ${mine ? 'text-primary-100' : 'text-primary-600'}`}>Challenge Request</p>
+        <p className="font-medium">{challengeRequest?.title || message.content || 'Challenge request'}</p>
+        <p className={`text-[11px] ${mine ? 'text-primary-100' : 'text-gray-500'}`}>{requestId ? formatChallengeReward(requestId) : 'Reward details unavailable'}</p>
+        {challengeRequest?.acceptedByName && <p className={`text-[11px] ${mine ? 'text-primary-100' : 'text-gray-500'}`}>Accepted by {challengeRequest.acceptedByName}</p>}
+        {challengeRequest?.proof && <p className={`text-[11px] ${mine ? 'text-primary-100' : 'text-gray-500'}`}>Proof: {challengeRequest.proof.text}</p>}
+        <p className={`text-[10px] capitalize ${mine ? 'text-primary-100' : 'text-gray-500'}`}>Status: {status}</p>
+
+        {(canAccept || canSubmitProof || canReview) && (
+          <div className="flex flex-wrap gap-1 pt-1">
+            {canAccept && (
+              <button
+                onClick={() => {
+                  const result = acceptChallengeRequest(challengeRequest.id);
+                  setChallengeFeedbackByRequestId((prev) => ({ ...prev, [challengeRequest.id]: result.ok ? 'Accepted challenge.' : (result.error || 'Unable to accept.') }));
+                }}
+                className="rounded-md bg-primary-500 px-2 py-1 text-[10px] text-white"
+              >
+                Accept
+              </button>
+            )}
+            {canSubmitProof && (
+              <button onClick={() => setShowProofFormByRequestId((prev) => ({ ...prev, [challengeRequest.id]: !prev[challengeRequest.id] }))} className="rounded-md bg-blue-500 px-2 py-1 text-[10px] text-white">
+                {showProofFormByRequestId[challengeRequest.id] ? 'Hide' : 'Proof'}
+              </button>
+            )}
+            {canReview && (
+              <>
+                <button
+                  onClick={() => {
+                    const result = reviewChallengeSubmission(challengeRequest.id, 'approve');
+                    setChallengeFeedbackByRequestId((prev) => ({ ...prev, [challengeRequest.id]: result.ok ? 'Approved and rewarded.' : (result.error || 'Unable to approve.') }));
+                  }}
+                  className="rounded-md bg-emerald-500 px-2 py-1 text-[10px] text-white"
+                >
+                  Approve
+                </button>
+                <button
+                  onClick={() => {
+                    const result = reviewChallengeSubmission(challengeRequest.id, 'reject');
+                    setChallengeFeedbackByRequestId((prev) => ({ ...prev, [challengeRequest.id]: result.ok ? 'Rejected.' : (result.error || 'Unable to reject.') }));
+                  }}
+                  className="rounded-md bg-red-500 px-2 py-1 text-[10px] text-white"
+                >
+                  Reject
+                </button>
+              </>
+            )}
+          </div>
+        )}
+
+        {canSubmitProof && showProofFormByRequestId[challengeRequest.id] && (
+          <div className="space-y-1 rounded-md border border-blue-100 bg-blue-50/40 p-2">
+            <input value={proofDraft.text} onChange={(e) => setProofFormByRequestId((prev) => ({ ...prev, [challengeRequest.id]: { ...proofDraft, text: e.target.value } }))} placeholder="Proof text" className="w-full rounded border border-gray-200 px-2 py-1 text-[10px] text-gray-800" />
+            <input value={proofDraft.image} onChange={(e) => setProofFormByRequestId((prev) => ({ ...prev, [challengeRequest.id]: { ...proofDraft, image: e.target.value } }))} placeholder="Image placeholder (optional)" className="w-full rounded border border-gray-200 px-2 py-1 text-[10px] text-gray-800" />
+            <input value={proofDraft.note} onChange={(e) => setProofFormByRequestId((prev) => ({ ...prev, [challengeRequest.id]: { ...proofDraft, note: e.target.value } }))} placeholder="Note (optional)" className="w-full rounded border border-gray-200 px-2 py-1 text-[10px] text-gray-800" />
+            <button
+              onClick={() => {
+                const result = submitChallengeProof(challengeRequest.id, proofDraft);
+                setChallengeFeedbackByRequestId((prev) => ({ ...prev, [challengeRequest.id]: result.ok ? 'Proof submitted.' : (result.error || 'Unable to submit proof.') }));
+                if (result.ok) {
+                  setShowProofFormByRequestId((prev) => ({ ...prev, [challengeRequest.id]: false }));
+                  setProofFormByRequestId((prev) => ({ ...prev, [challengeRequest.id]: { text: '', image: '', note: '' } }));
+                }
+              }}
+              className="rounded bg-blue-500 px-2 py-1 text-[10px] text-white"
+            >
+              Send
+            </button>
+          </div>
+        )}
+
+        {challengeRequest && challengeFeedbackByRequestId[challengeRequest.id] && <p className={`text-[10px] ${mine ? 'text-primary-100' : 'text-primary-600'}`}>{challengeFeedbackByRequestId[challengeRequest.id]}</p>}
+      </div>
+    );
   };
 
   const scrollToBottom = (target: 'dm' | 'group') => {
@@ -668,17 +760,7 @@ export default function Chats() {
             return (
               <motion.div data-message-id={message.id} key={message.id} initial={{ opacity: 0, y: 22, scale: 0.9 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ delay: Math.min(index * 0.05, 0.28), type: 'spring', stiffness: 300, damping: 17, mass: 0.62 }} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm transition-colors ${highlightedMessageId === message.id ? 'ring-2 ring-primary-300' : ''} ${mine ? 'bg-primary-500 text-white' : 'bg-white border border-gray-200 text-gray-800'}`}>
-                  {(() => {
-                    const challengeRequest = message.challengeRequestId ? challengeRequestById[message.challengeRequestId] : undefined;
-                    if (message.type !== 'challenge_request') return <p>{message.content}</p>;
-                    return (
-                      <div className="space-y-1">
-                        <p className={`text-[10px] font-semibold uppercase ${mine ? 'text-primary-100' : 'text-primary-600'}`}>Challenge Request</p>
-                        <p className="font-medium">{challengeRequest?.title || message.content || 'Challenge request'}</p>
-                        <p className={`text-[11px] ${mine ? 'text-primary-100' : 'text-gray-500'}`}>{message.challengeRequestId ? formatChallengeReward(message.challengeRequestId) : 'Reward details unavailable'}</p>
-                      </div>
-                    );
-                  })()}
+                  {message.type === 'challenge_request' ? renderChallengeRequestCard(message, mine) : <p>{message.content}</p>}
                   <p className={`mt-1 text-[10px] ${mine ? 'text-primary-100' : 'text-gray-400'}`}>{message.type}</p>
                 </div>
               </motion.div>
@@ -762,17 +844,7 @@ export default function Chats() {
             return (
               <motion.div data-message-id={message.id} key={message.id} initial={{ opacity: 0, y: 22, scale: 0.9 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ delay: Math.min(index * 0.05, 0.28), type: 'spring', stiffness: 300, damping: 17, mass: 0.62 }} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm transition-colors ${highlightedMessageId === message.id ? 'ring-2 ring-primary-300' : ''} ${mine ? 'bg-primary-500 text-white' : 'bg-white border border-gray-200 text-gray-800'}`}>
-                  {(() => {
-                    const challengeRequest = message.challengeRequestId ? challengeRequestById[message.challengeRequestId] : undefined;
-                    if (message.type !== 'challenge_request') return <p>{message.content}</p>;
-                    return (
-                      <div className="space-y-1">
-                        <p className={`text-[10px] font-semibold uppercase ${mine ? 'text-primary-100' : 'text-primary-600'}`}>Challenge Request</p>
-                        <p className="font-medium">{challengeRequest?.title || message.content || 'Challenge request'}</p>
-                        <p className={`text-[11px] ${mine ? 'text-primary-100' : 'text-gray-500'}`}>{message.challengeRequestId ? formatChallengeReward(message.challengeRequestId) : 'Reward details unavailable'}</p>
-                      </div>
-                    );
-                  })()}
+                  {message.type === 'challenge_request' ? renderChallengeRequestCard(message, mine) : <p>{message.content}</p>}
                   <div className="mt-1 flex items-center justify-between gap-2">
                     <p className={`text-[10px] ${mine ? 'text-primary-100' : 'text-gray-400'}`}>{message.type}</p>
                     {canPinMessages && (
