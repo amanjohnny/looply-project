@@ -4,7 +4,8 @@ import { Heart, MessageCircle, Send, Bookmark, MoreHorizontal, Award, Plus, Trop
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function Feed() {
-  const { user, posts, stories, challengeRequests, togglePostLike, setCurrentPage, openUserProfile, likedPostIds, openComments, openStoryViewer } = useAppStore();
+  const { user, posts, stories, togglePostLike, setCurrentPage, openUserProfile, likedPostIds, openComments, openStoryViewer } = useAppStore();
+  const challengeRequests = useAppStore((state) => state.challengeRequests || []);
   const [savedPosts, setSavedPosts] = useState<string[]>([]);
   const safeStories = stories || [];
 

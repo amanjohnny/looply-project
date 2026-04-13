@@ -15,10 +15,10 @@ export default function Missions() {
     communityUsers,
     userCollectibleShowcase,
     collectibles,
-    reservedCoinAmount,
-    reservedCollectibleIds,
     createChallengeRequest,
   } = useAppStore();
+  const reservedCoinAmount = useAppStore((state) => state.reservedCoinAmount || 0);
+  const reservedCollectibleIds = useAppStore((state) => state.reservedCollectibleIds || []);
 
   const [creating, setCreating] = useState(false);
   const [title, setTitle] = useState('');
