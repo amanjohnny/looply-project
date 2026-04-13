@@ -457,6 +457,7 @@ export default function Chats() {
 
   if (activeThread && activeThreadUser) {
     const background = directChatBackgroundByThreadId[activeThread.id] || 'bg-gray-50';
+    const dmDockInset = directComposerOpen ? 206 : 44;
 
     return (
       <motion.div ref={dmScreenRef} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -16 }} transition={{ type: 'spring', stiffness: 280, damping: 30 }} className="relative max-w-md mx-auto min-h-screen flex flex-col bg-white overflow-hidden" onMouseMove={(e) => {
@@ -478,7 +479,7 @@ export default function Chats() {
           const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 48;
           setDmAtBottom(atBottom);
           if (atBottom) setDmUnreadCount(0);
-        }} className={`flex-1 overflow-y-auto p-4 pb-40 space-y-3 transition-colors ${background}`} onClick={(e) => {
+        }} className={`flex-1 overflow-y-auto p-4 space-y-3 transition-colors ${background}`} style={{ paddingBottom: dmDockInset }} onClick={(e) => {
           const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
           if (e.clientY > rect.bottom - 90) setDirectComposerOpen(true);
         }}>
@@ -495,8 +496,10 @@ export default function Chats() {
 
         {!dmAtBottom && <button onClick={() => { scrollToBottom('dm'); setDmUnreadCount(0); }} className="absolute bottom-24 left-4 z-30 h-10 w-10 rounded-full bg-white/95 border border-gray-200 shadow-lg flex items-center justify-center text-gray-600"><ChevronDown size={18} />{dmUnreadCount > 0 && <span className="absolute -top-1 -right-1 min-w-[18px] px-1 h-[18px] rounded-full bg-primary-500 text-white text-[10px] leading-[18px] text-center">{dmUnreadCount > 99 ? '99+' : dmUnreadCount}</span>}</button>}
 
-        <div className="absolute bottom-0 left-0 right-0 z-20 bg-white">
-          <ChatComposer isOpen={directComposerOpen} onReveal={() => setDirectComposerOpen(true)} onCollapse={() => setDirectComposerOpen(false)} onSend={({ content, type }) => sendDirectMessage(activeThread.id, { content, type: type as DirectMessage['type'] })} />
+        <div className="absolute inset-x-0 bottom-0 z-30 pointer-events-none">
+          <div className="pointer-events-auto">
+            <ChatComposer isOpen={directComposerOpen} onReveal={() => setDirectComposerOpen(true)} onCollapse={() => setDirectComposerOpen(false)} onSend={({ content, type }) => sendDirectMessage(activeThread.id, { content, type: type as DirectMessage['type'] })} />
+          </div>
         </div>
 
         <AnimatePresence>
@@ -509,6 +512,7 @@ export default function Chats() {
   if (activeGroup) {
     const isAdmin = activeGroup.ownerId === user.id || activeGroup.adminIds?.includes(user.id);
     const background = groupChatBackgroundByGroupId[activeGroup.id] || 'bg-gray-50';
+    const groupDockInset = groupComposerOpen ? 206 : 44;
 
     return (
       <motion.div ref={groupScreenRef} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -16 }} transition={{ type: 'spring', stiffness: 280, damping: 30 }} className="relative max-w-md mx-auto min-h-screen flex flex-col bg-white overflow-hidden" onMouseMove={(e) => {
@@ -535,7 +539,7 @@ export default function Chats() {
           const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 48;
           setGroupAtBottom(atBottom);
           if (atBottom) setGroupUnreadCount(0);
-        }} className={`flex-1 overflow-y-auto p-4 pb-40 space-y-3 ${background}`} onClick={(e) => {
+        }} className={`flex-1 overflow-y-auto p-4 space-y-3 ${background}`} style={{ paddingBottom: groupDockInset }} onClick={(e) => {
           const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
           if (e.clientY > rect.bottom - 90) setGroupComposerOpen(true);
         }}>
@@ -551,8 +555,10 @@ export default function Chats() {
 
         {!groupAtBottom && <button onClick={() => { scrollToBottom('group'); setGroupUnreadCount(0); }} className="absolute bottom-24 left-4 z-30 h-10 w-10 rounded-full bg-white/95 border border-gray-200 shadow-lg flex items-center justify-center text-gray-600"><ChevronDown size={18} />{groupUnreadCount > 0 && <span className="absolute -top-1 -right-1 min-w-[18px] px-1 h-[18px] rounded-full bg-primary-500 text-white text-[10px] leading-[18px] text-center">{groupUnreadCount > 99 ? '99+' : groupUnreadCount}</span>}</button>}
 
-        <div className="absolute bottom-0 left-0 right-0 z-20 bg-white">
-          <ChatComposer isOpen={groupComposerOpen} onReveal={() => setGroupComposerOpen(true)} onCollapse={() => setGroupComposerOpen(false)} onSend={({ content, type }) => sendGroupMessage(activeGroup.id, { content, type: type as GroupMessage['type'] })} />
+        <div className="absolute inset-x-0 bottom-0 z-30 pointer-events-none">
+          <div className="pointer-events-auto">
+            <ChatComposer isOpen={groupComposerOpen} onReveal={() => setGroupComposerOpen(true)} onCollapse={() => setGroupComposerOpen(false)} onSend={({ content, type }) => sendGroupMessage(activeGroup.id, { content, type: type as GroupMessage['type'] })} />
+          </div>
         </div>
 
         <AnimatePresence>
