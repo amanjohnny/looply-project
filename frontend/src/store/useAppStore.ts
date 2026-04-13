@@ -15,6 +15,9 @@ import type {
   DirectThread,
   DirectMessage,
   GroupMessage,
+  ChallengeRequest,
+  ChallengeReward,
+  ChallengeRequestDestination,
 } from '../types';
 
 interface AppState {
@@ -44,6 +47,9 @@ interface AppState {
   activeCommentPostId: string | null;
   blockedUserIds: string[];
   reports: CommentReport[];
+  challengeRequests: ChallengeRequest[];
+  reservedCoinAmount: number;
+  reservedCollectibleIds: string[];
   storyViewerOpen: boolean;
   activeStoryIndex: number;
 
@@ -61,6 +67,7 @@ interface AppState {
   activeGroupChatId: string | null;
   directChatBackgroundByThreadId: Record<string, string>;
   groupChatBackgroundByGroupId: Record<string, string>;
+  pinnedGroupMessageIds: Record<string, string[]>;
   communityUsers: User[];
   selectedUser: User | null;
   userCollectibleShowcase: Record<string, Collectible[]>;
@@ -89,12 +96,18 @@ interface AppState {
   setLastOpenRewards: (rewards: CaseReward[]) => void;
   addCollectible: (collectible: Collectible) => void;
   selectGroup: (group: Group | null) => void;
-  createGroup: (payload: { name: string; description: string; avatar: string }) => { ok: boolean; error?: string };
+  createGroup: (payload: { name: string; description: string; avatar: string; username?: string }) => { ok: boolean; error?: string };
   updateGroupMeta: (groupId: string, payload: { rules?: string; adminIdToAdd?: string }) => void;
   openGroupChat: (groupId: string) => void;
   closeGroupChat: () => void;
   sendGroupMessage: (groupId: string, payload: { content: string; type: GroupMessage['type'] }) => { ok: boolean; error?: string };
   inviteMemberToGroup: (groupId: string) => void;
+  addGroupParticipant: (groupId: string, userId: string) => void;
+  assignGroupAdmin: (groupId: string, userId: string) => void;
+  togglePinGroupMessage: (groupId: string, messageId: string) => void;
+  deleteGroup: (groupId: string) => void;
+  updateGroupDescription: (groupId: string, description: string) => void;
+  addGroupStory: (groupId: string, payload: { caption: string; media?: string }) => { ok: boolean; error?: string };
   openDirectThread: (userId: string) => void;
   closeDirectThread: () => void;
   sendDirectMessage: (threadId: string, payload: { content: string; type: DirectMessage['type'] }) => { ok: boolean; error?: string };
@@ -108,6 +121,7 @@ interface AppState {
   addCoins: (amount: number) => void;
   markStoryViewed: (storyId: string) => void;
   addStory: (payload: { caption: string; media?: string }) => { ok: boolean; error?: string };
+  createChallengeRequest: (payload: { title: string; description: string; category: string; difficulty: Challenge['difficulty']; dueDate?: Date; reward: ChallengeReward; destination: ChallengeRequestDestination }) => { ok: boolean; error?: string };
   openStoryViewer: (storyId: string) => void;
   closeStoryViewer: () => void;
   nextStory: () => void;
@@ -160,11 +174,24 @@ const mockStories: Story[] = [
   { id: 's4', userId: 'u4', username: 'MusicKid', avatar: '🎵', caption: 'Practice set complete', media: '🎹', hasViewed: false, createdAt: new Date(Date.now() - 9600000) },
 ];
 
+
+const normalizeGroupUsername = (value: string) => value.trim().toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 20);
+
+const createUniqueInviteCode = (existingCodes: string[]) => {
+  let tries = 0;
+  while (tries < 20) {
+    const candidate = `GL-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+    if (!existingCodes.includes(candidate)) return candidate;
+    tries += 1;
+  }
+  return `GL-${Date.now().toString(36).slice(-4).toUpperCase()}`;
+};
+
 const mockGroups: Group[] = [
-  { id: '1', name: 'Study Buddies', description: 'A supportive group for academic success', avatar: '📚', memberCount: 156, challengesCreated: 45, ownerId: 'u1', isPrivate: false, adminIds: ['u1'], rules: 'Be respectful and post your real progress.' },
-  { id: '2', name: 'Math Wizards', description: 'For those who love mathematics', avatar: '➗', memberCount: 89, challengesCreated: 32, ownerId: 'u2', isPrivate: false, adminIds: ['u2'], rules: 'Help others learn, no answer dumping.' },
-  { id: '3', name: 'Book Lovers', description: 'Reading and sharing great books', avatar: '📖', memberCount: 234, challengesCreated: 67, ownerId: 'u3', isPrivate: true, adminIds: ['u3'], rules: 'Spoiler-tag major reveals.' },
-  { id: '4', name: 'Science Club', description: 'Explore the wonders of science', avatar: '🔬', memberCount: 178, challengesCreated: 54, ownerId: 'u4', isPrivate: false, adminIds: ['u4'], rules: 'Safety first when sharing experiments.' },
+  { id: '1', name: 'Study Buddies', description: 'A supportive group for academic success', avatar: '📚', memberCount: 156, challengesCreated: 45, ownerId: 'u1', username: 'studybuddies', inviteCode: 'GL-BUD1', memberIds: ['u1','u2','u3'], isPrivate: false, adminIds: ['u1'], rules: 'Be respectful and post your real progress.' },
+  { id: '2', name: 'Math Wizards', description: 'For those who love mathematics', avatar: '➗', memberCount: 89, challengesCreated: 32, ownerId: 'u2', username: 'mathwizards', inviteCode: 'GL-MATH', memberIds: ['u2','u1','u4'], isPrivate: false, adminIds: ['u2'], rules: 'Help others learn, no answer dumping.' },
+  { id: '3', name: 'Book Lovers', description: 'Reading and sharing great books', avatar: '📖', memberCount: 234, challengesCreated: 67, ownerId: 'u3', username: 'booklovers', inviteCode: 'GL-BOOK', memberIds: ['u3','u5'], isPrivate: true, adminIds: ['u3'], rules: 'Spoiler-tag major reveals.' },
+  { id: '4', name: 'Science Club', description: 'Explore the wonders of science', avatar: '🔬', memberCount: 178, challengesCreated: 54, ownerId: 'u4', username: 'scienceclub', inviteCode: 'GL-SCI1', memberIds: ['u4','u1','u3'], isPrivate: false, adminIds: ['u4'], rules: 'Safety first when sharing experiments.' },
 ];
 
 const mockGroupMessagesById: Record<string, GroupMessage[]> = {
@@ -204,6 +231,52 @@ const mockCollectibleShowcase: Record<string, Collectible[]> = {
   u4: [{ id: 'u4-1', name: 'Music Dragon', description: 'Musical dragon sings', rarity: 'epic', image: '🐉' }],
   u5: [{ id: 'u5-1', name: 'Art Panda', description: 'Creative panda paints', rarity: 'epic', image: '🐼' }],
 };
+
+
+const mockChallengeRequests: ChallengeRequest[] = [
+  {
+    id: 'cr-seed-1',
+    creatorId: 'u2',
+    creatorName: 'Mina Page',
+    creatorAvatar: '📖',
+    title: '7-Day Reading Sprint',
+    description: 'Read 20 pages each day and post your progress check-in.',
+    category: 'Reading',
+    difficulty: 'medium',
+    reward: { kind: 'coins', amount: 120 },
+    destination: { type: 'feed' },
+    status: 'open',
+    createdAt: new Date(Date.now() - 2600000),
+  },
+  {
+    id: 'cr-seed-2',
+    creatorId: 'u3',
+    creatorName: 'Nora Lin',
+    creatorAvatar: '🔬',
+    title: 'Kitchen Science Weekend',
+    description: 'Complete one safe experiment and share a short summary.',
+    category: 'Science',
+    difficulty: 'hard',
+    reward: { kind: 'collectible', collectibleId: 'u3-1', collectibleName: 'Science Rabbit', collectibleImage: '🐰' },
+    destination: { type: 'feed' },
+    status: 'open',
+    createdAt: new Date(Date.now() - 5200000),
+  },
+  {
+    id: 'cr-seed-3',
+    creatorId: 'u5',
+    creatorName: 'Ivy Rae',
+    creatorAvatar: '🎨',
+    title: 'Sketch + Reflect',
+    description: 'Do one 15-minute sketch and write 3 reflection points.',
+    category: 'Creativity',
+    difficulty: 'easy',
+    reward: { kind: 'coins', amount: 80 },
+    destination: { type: 'feed' },
+    status: 'open',
+    createdAt: new Date(Date.now() - 8600000),
+  },
+];
 
 const caseRewardConfig: Record<CaseType, {
   rewardCount: { min: number; max: number };
@@ -298,6 +371,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   activeCommentPostId: null,
   blockedUserIds: [],
   reports: [],
+  challengeRequests: mockChallengeRequests,
+  reservedCoinAmount: 0,
+  reservedCollectibleIds: [],
   storyViewerOpen: false,
   activeStoryIndex: 0,
   collectibles: [],
@@ -311,6 +387,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   activeGroupChatId: null,
   directChatBackgroundByThreadId: {},
   groupChatBackgroundByGroupId: {},
+  pinnedGroupMessageIds: {},
   communityUsers: mockCommunityUsers,
   selectedUser: null,
   userCollectibleShowcase: { ...mockCollectibleShowcase, u1: [] },
@@ -535,12 +612,22 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   selectGroup: (group) => set({ selectedGroup: group }),
 
-  createGroup: ({ name, description, avatar }) => {
+  createGroup: ({ name, description, avatar, username }) => {
     const groupName = name.trim();
     const groupDescription = description.trim();
     if (!groupName) return { ok: false, error: 'Group name is required.' };
 
-    set((state) => ({
+    const state = get();
+    const nextUsernameRaw = username?.trim() || groupName;
+    const nextUsername = normalizeGroupUsername(nextUsernameRaw);
+    if (!nextUsername || nextUsername.length < 3) return { ok: false, error: 'Group username must be at least 3 characters.' };
+
+    const usernameTaken = state.groups.some((group) => group.username.toLowerCase() === nextUsername);
+    if (usernameTaken) return { ok: false, error: 'That group username is already taken.' };
+
+    const inviteCode = createUniqueInviteCode(state.groups.map((group) => group.inviteCode));
+
+    set((curr) => ({
       groups: [
         {
           id: `g-${Date.now()}`,
@@ -549,12 +636,15 @@ export const useAppStore = create<AppState>((set, get) => ({
           avatar: avatar || '👥',
           memberCount: 1,
           challengesCreated: 0,
-          ownerId: state.user.id,
+          ownerId: curr.user.id,
+          username: nextUsername,
+          inviteCode,
+          memberIds: [curr.user.id],
           isPrivate: false,
-          adminIds: [state.user.id],
+          adminIds: [curr.user.id],
           rules: 'Be respectful and stay on topic.',
         },
-        ...state.groups,
+        ...curr.groups,
       ],
     }));
 
@@ -609,6 +699,81 @@ export const useAppStore = create<AppState>((set, get) => ({
         group.id === groupId ? { ...group, memberCount: group.memberCount + 1 } : group,
       ),
     })),
+
+  addGroupParticipant: (groupId, userId) =>
+    set((state) => ({
+      groups: state.groups.map((group) => {
+        if (group.id !== groupId) return group;
+        const nextMembers = Array.from(new Set([...(group.memberIds || [group.ownerId]), userId]));
+        return { ...group, memberIds: nextMembers, memberCount: nextMembers.length };
+      }),
+    })),
+
+  assignGroupAdmin: (groupId, userId) =>
+    set((state) => ({
+      groups: state.groups.map((group) => {
+        if (group.id !== groupId) return group;
+        const nextMembers = Array.from(new Set([...(group.memberIds || [group.ownerId]), userId]));
+        const nextAdmins = Array.from(new Set([...(group.adminIds || [group.ownerId]), userId]));
+        return { ...group, memberIds: nextMembers, adminIds: nextAdmins, memberCount: nextMembers.length };
+      }),
+    })),
+
+  togglePinGroupMessage: (groupId, messageId) =>
+    set((state) => {
+      const current = state.pinnedGroupMessageIds[groupId] || [];
+      const next = current.includes(messageId) ? current.filter((id) => id !== messageId) : [messageId, ...current].slice(0, 20);
+      return {
+        pinnedGroupMessageIds: {
+          ...state.pinnedGroupMessageIds,
+          [groupId]: next,
+        },
+      };
+    }),
+
+  deleteGroup: (groupId) =>
+    set((state) => {
+      const isDeletingActive = state.activeGroupChatId === groupId;
+      const nextGroups = state.groups.filter((group) => group.id !== groupId);
+      const nextMessages = { ...state.groupMessagesById };
+      delete nextMessages[groupId];
+      const nextPinned = { ...state.pinnedGroupMessageIds };
+      delete nextPinned[groupId];
+      return {
+        groups: nextGroups,
+        groupMessagesById: nextMessages,
+        pinnedGroupMessageIds: nextPinned,
+        activeGroupChatId: isDeletingActive ? null : state.activeGroupChatId,
+        selectedGroup: state.selectedGroup?.id === groupId ? null : state.selectedGroup,
+      };
+    }),
+
+  updateGroupDescription: (groupId, description) =>
+    set((state) => ({
+      groups: state.groups.map((group) => (group.id === groupId ? { ...group, description: description.trim() || group.description } : group)),
+    })),
+
+  addGroupStory: (groupId, payload) => {
+    const caption = payload.caption.trim();
+    if (!caption) return { ok: false, error: 'Story caption cannot be empty.' };
+    set((state) => ({
+      stories: [
+        {
+          id: `gs-${Date.now()}`,
+          userId: state.user.id,
+          username: state.user.displayName,
+          avatar: state.user.avatar,
+          caption,
+          media: payload.media || '✨',
+          hasViewed: false,
+          groupId,
+          createdAt: new Date(),
+        },
+        ...state.stories,
+      ],
+    }));
+    return { ok: true };
+  },
 
   openDirectThread: (userId) =>
     set((state) => {
@@ -727,6 +892,89 @@ export const useAppStore = create<AppState>((set, get) => ({
         ...state.stories,
       ],
     }));
+
+    return { ok: true };
+  },
+
+
+
+  createChallengeRequest: ({ title, description, category, difficulty, dueDate, reward, destination }) => {
+    const trimmedTitle = title.trim();
+    const trimmedDescription = description.trim();
+    if (!trimmedTitle || !trimmedDescription) return { ok: false, error: 'Title and description are required.' };
+
+    const state = get();
+    if (reward.kind === 'coins') {
+      const available = state.user.coins - state.reservedCoinAmount;
+      if (reward.amount <= 0 || reward.amount > available) return { ok: false, error: 'Not enough available coins for that reward.' };
+    }
+
+    if (reward.kind === 'collectible') {
+      const owns = (state.userCollectibleShowcase[state.user.id] || state.collectibles).some((item) => item.id === reward.collectibleId);
+      if (!owns) return { ok: false, error: 'You do not own that collectible.' };
+      if (state.reservedCollectibleIds.includes(reward.collectibleId)) return { ok: false, error: 'That collectible is already reserved.' };
+    }
+
+    const requestId = `cr-${Date.now()}`;
+    const request: ChallengeRequest = {
+      id: requestId,
+      creatorId: state.user.id,
+      creatorName: state.user.displayName,
+      creatorAvatar: state.user.avatar,
+      title: trimmedTitle,
+      description: trimmedDescription,
+      category,
+      difficulty,
+      dueDate,
+      reward,
+      destination,
+      status: 'open',
+      createdAt: new Date(),
+    };
+
+    set((curr) => {
+      const next: Partial<AppState> = {
+        challengeRequests: [request, ...curr.challengeRequests],
+        reservedCoinAmount: reward.kind === 'coins' ? curr.reservedCoinAmount + reward.amount : curr.reservedCoinAmount,
+        reservedCollectibleIds: reward.kind === 'collectible' ? [...curr.reservedCollectibleIds, reward.collectibleId] : curr.reservedCollectibleIds,
+      };
+
+      if (destination.type === 'group') {
+        next.groupMessagesById = {
+          ...curr.groupMessagesById,
+          [destination.groupId]: [
+            ...(curr.groupMessagesById[destination.groupId] || []),
+            {
+              id: `${destination.groupId}-${Date.now()}`,
+              groupId: destination.groupId,
+              senderId: curr.user.id,
+              type: 'challenge_request',
+              content: `Challenge request: ${trimmedTitle}`,
+              challengeRequestId: requestId,
+              createdAt: new Date(),
+            },
+          ],
+        };
+      }
+
+      if (destination.type === 'dm') {
+        next.directThreads = curr.directThreads.map((thread) => thread.id === destination.threadId ? {
+          ...thread,
+          updatedAt: new Date(),
+          messages: [...thread.messages, {
+            id: `${thread.id}-${Date.now()}`,
+            threadId: thread.id,
+            senderId: curr.user.id,
+            type: 'challenge_request',
+            content: `Challenge request: ${trimmedTitle}`,
+            challengeRequestId: requestId,
+            createdAt: new Date(),
+          }],
+        } : thread);
+      }
+
+      return next as AppState;
+    });
 
     return { ok: true };
   },
