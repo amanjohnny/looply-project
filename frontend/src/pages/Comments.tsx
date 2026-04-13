@@ -1,6 +1,14 @@
 import { useMemo, useState } from 'react';
-import { ArrowLeft, Heart, MessageCircle, Send, MoreHorizontal } from 'lucide-react';
+import { ArrowLeft, Heart, MessageCircle, Send, MoreHorizontal, Sticker, Image as ImageIcon, Video } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
+
+type CommentAttachmentType = 'image' | 'sticker' | 'video';
+
+interface CommentAttachment {
+  type: CommentAttachmentType;
+  label: string;
+  content: string;
+}
 
 export default function Comments() {
   const {
@@ -19,6 +27,7 @@ export default function Comments() {
   } = useAppStore();
 
   const [draft, setDraft] = useState('');
+  const [stagedAttachment, setStagedAttachment] = useState<CommentAttachment | null>(null);
   const [activeMenuCommentId, setActiveMenuCommentId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string>('');
 
@@ -46,13 +55,31 @@ export default function Comments() {
   const isLiked = likedPostIds.includes(post.id);
   const postAuthorId = post.userId;
 
+  const stageCommentAttachment = (next: CommentAttachment) => {
+    if (stagedAttachment && stagedAttachment.type !== next.type) {
+      setFeedback(`Replaced ${stagedAttachment.label} with ${next.label}.`);
+    } else {
+      setFeedback(`${next.label} staged. Press send to confirm.`);
+    }
+    setStagedAttachment(next);
+  };
+
   const handleSubmit = () => {
-    const result = addComment(post.id, draft);
+    const text = draft.trim();
+    if (!text && !stagedAttachment) {
+      setFeedback('Write text or stage one item first.');
+      return;
+    }
+
+    const payloadText = [text, stagedAttachment?.content].filter(Boolean).join(' ');
+    const result = addComment(post.id, payloadText);
     if (!result.ok) {
       setFeedback(result.error || 'Unable to add comment.');
       return;
     }
+
     setDraft('');
+    setStagedAttachment(null);
     setFeedback(result.error || '');
   };
 
@@ -75,7 +102,7 @@ export default function Comments() {
   };
 
   return (
-    <div className="max-w-md mx-auto min-h-screen bg-gray-50 pb-28">
+    <div className="relative max-w-md mx-auto min-h-screen bg-gray-50 pb-28 overflow-hidden">
       <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-gray-100">
         <div className="flex items-center gap-3 px-4 py-3">
           <button onClick={closeComments} className="p-2 rounded-full hover:bg-gray-100"><ArrowLeft size={20} className="text-gray-600" /></button>
@@ -83,7 +110,7 @@ export default function Comments() {
         </div>
       </header>
 
-      <div className="p-4 space-y-4">
+      <div className="p-4 space-y-4 pb-44">
         <div className="bg-white rounded-2xl p-4 shadow-card border border-gray-100">
           <div className="flex items-center gap-2 mb-2">
             <span className="text-2xl leading-none">{post.userAvatar}</span>
@@ -150,8 +177,19 @@ export default function Comments() {
         </div>
       </div>
 
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100">
+      <div className="absolute bottom-0 left-0 right-0 border-t border-gray-100 bg-white">
         <div className="max-w-md mx-auto p-3">
+          {stagedAttachment && (
+            <div className="mb-2 flex items-center justify-between rounded-xl border border-primary-100 bg-primary-50 px-3 py-2 text-xs">
+              <p className="font-medium text-primary-700">Staged: {stagedAttachment.label}</p>
+              <button onClick={() => setStagedAttachment(null)} className="rounded-md px-2 py-1 text-primary-600 hover:bg-primary-100">Remove</button>
+            </div>
+          )}
+          <div className="mb-2 flex items-center gap-2 text-gray-500">
+            <button onClick={() => stageCommentAttachment({ type: 'sticker', label: 'Sticker', content: '🧷 Sticker placeholder' })} className="rounded-lg border border-gray-200 p-1.5 hover:bg-gray-50"><Sticker size={16} /></button>
+            <button onClick={() => stageCommentAttachment({ type: 'image', label: 'Image', content: '🖼️ Image placeholder' })} className="rounded-lg border border-gray-200 p-1.5 hover:bg-gray-50"><ImageIcon size={16} /></button>
+            <button onClick={() => stageCommentAttachment({ type: 'video', label: 'Video circle', content: '🎬 Video circle placeholder' })} className="rounded-lg border border-gray-200 p-1.5 hover:bg-gray-50"><Video size={16} /></button>
+          </div>
           {feedback && <p className="mb-2 text-xs text-primary-600 break-words">{feedback}</p>}
           <div className="flex items-center gap-2">
             <input
