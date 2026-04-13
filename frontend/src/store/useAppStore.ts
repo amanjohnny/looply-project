@@ -15,6 +15,9 @@ import type {
   DirectThread,
   DirectMessage,
   GroupMessage,
+  ChallengeRequest,
+  ChallengeReward,
+  ChallengeRequestDestination,
 } from '../types';
 
 interface AppState {
@@ -44,6 +47,9 @@ interface AppState {
   activeCommentPostId: string | null;
   blockedUserIds: string[];
   reports: CommentReport[];
+  challengeRequests: ChallengeRequest[];
+  reservedCoinAmount: number;
+  reservedCollectibleIds: string[];
   storyViewerOpen: boolean;
   activeStoryIndex: number;
 
@@ -115,6 +121,7 @@ interface AppState {
   addCoins: (amount: number) => void;
   markStoryViewed: (storyId: string) => void;
   addStory: (payload: { caption: string; media?: string }) => { ok: boolean; error?: string };
+  createChallengeRequest: (payload: { title: string; description: string; category: string; difficulty: Challenge['difficulty']; dueDate?: Date; reward: ChallengeReward; destination: ChallengeRequestDestination }) => { ok: boolean; error?: string };
   openStoryViewer: (storyId: string) => void;
   closeStoryViewer: () => void;
   nextStory: () => void;
@@ -318,6 +325,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   activeCommentPostId: null,
   blockedUserIds: [],
   reports: [],
+  challengeRequests: [],
+  reservedCoinAmount: 0,
+  reservedCollectibleIds: [],
   storyViewerOpen: false,
   activeStoryIndex: 0,
   collectibles: [],
@@ -836,6 +846,89 @@ export const useAppStore = create<AppState>((set, get) => ({
         ...state.stories,
       ],
     }));
+
+    return { ok: true };
+  },
+
+
+
+  createChallengeRequest: ({ title, description, category, difficulty, dueDate, reward, destination }) => {
+    const trimmedTitle = title.trim();
+    const trimmedDescription = description.trim();
+    if (!trimmedTitle || !trimmedDescription) return { ok: false, error: 'Title and description are required.' };
+
+    const state = get();
+    if (reward.kind === 'coins') {
+      const available = state.user.coins - state.reservedCoinAmount;
+      if (reward.amount <= 0 || reward.amount > available) return { ok: false, error: 'Not enough available coins for that reward.' };
+    }
+
+    if (reward.kind === 'collectible') {
+      const owns = (state.userCollectibleShowcase[state.user.id] || state.collectibles).some((item) => item.id === reward.collectibleId);
+      if (!owns) return { ok: false, error: 'You do not own that collectible.' };
+      if (state.reservedCollectibleIds.includes(reward.collectibleId)) return { ok: false, error: 'That collectible is already reserved.' };
+    }
+
+    const requestId = `cr-${Date.now()}`;
+    const request: ChallengeRequest = {
+      id: requestId,
+      creatorId: state.user.id,
+      creatorName: state.user.displayName,
+      creatorAvatar: state.user.avatar,
+      title: trimmedTitle,
+      description: trimmedDescription,
+      category,
+      difficulty,
+      dueDate,
+      reward,
+      destination,
+      status: 'open',
+      createdAt: new Date(),
+    };
+
+    set((curr) => {
+      const next: Partial<AppState> = {
+        challengeRequests: [request, ...curr.challengeRequests],
+        reservedCoinAmount: reward.kind === 'coins' ? curr.reservedCoinAmount + reward.amount : curr.reservedCoinAmount,
+        reservedCollectibleIds: reward.kind === 'collectible' ? [...curr.reservedCollectibleIds, reward.collectibleId] : curr.reservedCollectibleIds,
+      };
+
+      if (destination.type === 'group') {
+        next.groupMessagesById = {
+          ...curr.groupMessagesById,
+          [destination.groupId]: [
+            ...(curr.groupMessagesById[destination.groupId] || []),
+            {
+              id: `${destination.groupId}-${Date.now()}`,
+              groupId: destination.groupId,
+              senderId: curr.user.id,
+              type: 'challenge_request',
+              content: `Challenge request: ${trimmedTitle}`,
+              challengeRequestId: requestId,
+              createdAt: new Date(),
+            },
+          ],
+        };
+      }
+
+      if (destination.type === 'dm') {
+        next.directThreads = curr.directThreads.map((thread) => thread.id === destination.threadId ? {
+          ...thread,
+          updatedAt: new Date(),
+          messages: [...thread.messages, {
+            id: `${thread.id}-${Date.now()}`,
+            threadId: thread.id,
+            senderId: curr.user.id,
+            type: 'challenge_request',
+            content: `Challenge request: ${trimmedTitle}`,
+            challengeRequestId: requestId,
+            createdAt: new Date(),
+          }],
+        } : thread);
+      }
+
+      return next as AppState;
+    });
 
     return { ok: true };
   },

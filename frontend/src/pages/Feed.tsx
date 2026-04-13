@@ -5,9 +5,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 
 export default function Feed() {
-  const { user, posts, stories, togglePostLike, setCurrentPage, openUserProfile, likedPostIds, openComments, openStoryViewer } = useAppStore();
+  const { user, posts, stories, challengeRequests, togglePostLike, setCurrentPage, openUserProfile, likedPostIds, openComments, openStoryViewer } = useAppStore();
   const [savedPosts, setSavedPosts] = useState<string[]>([]);
   const safeStories = stories || [];
+
+  const feedRequests = challengeRequests.filter((request) => request.destination.type === 'feed');
 
   const formatTime = (date: Date) => {
     const now = new Date();
@@ -55,6 +57,20 @@ export default function Feed() {
             </div>
           ))}
         </div>
+      </div>
+
+      <div className="px-4 py-3 space-y-3">
+        {feedRequests.map((request) => (
+          <div key={request.id} className="rounded-2xl border border-primary-100 bg-gradient-to-br from-primary-50 to-white p-3">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-primary-600">Challenge Request</p>
+            <h3 className="mt-1 text-sm font-semibold text-gray-900">{request.title}</h3>
+            <p className="text-xs text-gray-600 mt-1">{request.description}</p>
+            <div className="mt-2 flex items-center justify-between text-xs">
+              <span className="rounded-full bg-white px-2 py-1 text-gray-500">{request.category} • {request.difficulty}</span>
+              <span className="font-semibold text-primary-600">{request.reward.kind === 'coins' ? `${request.reward.amount} coins` : `${request.reward.collectibleImage} ${request.reward.collectibleName}`}</span>
+            </div>
+          </div>
+        ))}
       </div>
 
       <div className="divide-y divide-gray-100">

@@ -47,6 +47,32 @@ export interface PostComment {
   timestamp: Date;
 }
 
+
+export type ChallengeReward =
+  | { kind: 'coins'; amount: number }
+  | { kind: 'collectible'; collectibleId: string; collectibleName: string; collectibleImage: string };
+
+export type ChallengeRequestDestination =
+  | { type: 'feed' }
+  | { type: 'group'; groupId: string }
+  | { type: 'dm'; threadId: string };
+
+export interface ChallengeRequest {
+  id: string;
+  creatorId: string;
+  creatorName: string;
+  creatorAvatar: string;
+  title: string;
+  description: string;
+  category: string;
+  difficulty: 'easy' | 'medium' | 'hard';
+  dueDate?: Date;
+  reward: ChallengeReward;
+  destination: ChallengeRequestDestination;
+  status: 'open' | 'accepted' | 'completed';
+  createdAt: Date;
+}
+
 export interface Story {
   id: string;
   userId: string;
@@ -106,8 +132,9 @@ export interface DirectMessage {
   id: string;
   threadId: string;
   senderId: string;
-  type: 'text' | 'emoji' | 'sticker' | 'image' | 'video' | 'audio' | 'document' | 'gift';
+  type: 'text' | 'emoji' | 'sticker' | 'image' | 'video' | 'audio' | 'document' | 'gift' | 'challenge_request';
   content: string;
+  challengeRequestId?: string;
   createdAt: Date;
 }
 
@@ -122,8 +149,9 @@ export interface GroupMessage {
   id: string;
   groupId: string;
   senderId: string;
-  type: 'text' | 'emoji' | 'sticker' | 'image' | 'video' | 'audio';
+  type: 'text' | 'emoji' | 'sticker' | 'image' | 'video' | 'audio' | 'challenge_request';
   content: string;
+  challengeRequestId?: string;
   createdAt: Date;
 }
 

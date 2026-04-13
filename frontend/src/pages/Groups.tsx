@@ -461,6 +461,7 @@ export default function Chats() {
     openUserProfile,
     stories,
     openStoryViewer,
+    challengeRequests,
   } = useAppStore();
 
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -517,6 +518,15 @@ export default function Chats() {
 
   const activeGroup = useMemo(() => groups.find((group) => group.id === activeGroupChatId) || null, [groups, activeGroupChatId]);
   const activeGroupMessages = useMemo(() => (activeGroup ? groupMessagesById[activeGroup.id] || [] : []), [activeGroup, groupMessagesById]);
+  const challengeRequestById = useMemo(() => Object.fromEntries(challengeRequests.map((request) => [request.id, request])), [challengeRequests]);
+  const formatChallengeReward = (requestId: string) => {
+    const request = challengeRequestById[requestId];
+    if (!request) return '';
+    return request.reward.kind === 'coins'
+      ? `${request.reward.amount} coins`
+      : `${request.reward.collectibleImage} ${request.reward.collectibleName}`;
+  };
+
 
   const revealComposerOnEdge = (target: 'dm' | 'group', y: number) => {
     const el = target === 'dm' ? dmScreenRef.current : groupScreenRef.current;
@@ -654,7 +664,15 @@ export default function Chats() {
             return (
               <motion.div data-message-id={message.id} key={message.id} initial={{ opacity: 0, y: 22, scale: 0.9 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ delay: Math.min(index * 0.05, 0.28), type: 'spring', stiffness: 300, damping: 17, mass: 0.62 }} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm transition-colors ${highlightedMessageId === message.id ? 'ring-2 ring-primary-300' : ''} ${mine ? 'bg-primary-500 text-white' : 'bg-white border border-gray-200 text-gray-800'}`}>
-                  <p>{message.content}</p>
+                  {message.type === 'challenge_request' && message.challengeRequestId && challengeRequestById[message.challengeRequestId] ? (
+                    <div className="space-y-1">
+                      <p className={`text-[10px] font-semibold uppercase ${mine ? 'text-primary-100' : 'text-primary-600'}`}>Challenge Request</p>
+                      <p className="font-medium">{challengeRequestById[message.challengeRequestId].title}</p>
+                      <p className={`text-[11px] ${mine ? 'text-primary-100' : 'text-gray-500'}`}>{formatChallengeReward(message.challengeRequestId)}</p>
+                    </div>
+                  ) : (
+                    <p>{message.content}</p>
+                  )}
                   <p className={`mt-1 text-[10px] ${mine ? 'text-primary-100' : 'text-gray-400'}`}>{message.type}</p>
                 </div>
               </motion.div>
@@ -738,7 +756,15 @@ export default function Chats() {
             return (
               <motion.div data-message-id={message.id} key={message.id} initial={{ opacity: 0, y: 22, scale: 0.9 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ delay: Math.min(index * 0.05, 0.28), type: 'spring', stiffness: 300, damping: 17, mass: 0.62 }} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm transition-colors ${highlightedMessageId === message.id ? 'ring-2 ring-primary-300' : ''} ${mine ? 'bg-primary-500 text-white' : 'bg-white border border-gray-200 text-gray-800'}`}>
-                  <p>{message.content}</p>
+                  {message.type === 'challenge_request' && message.challengeRequestId && challengeRequestById[message.challengeRequestId] ? (
+                    <div className="space-y-1">
+                      <p className={`text-[10px] font-semibold uppercase ${mine ? 'text-primary-100' : 'text-primary-600'}`}>Challenge Request</p>
+                      <p className="font-medium">{challengeRequestById[message.challengeRequestId].title}</p>
+                      <p className={`text-[11px] ${mine ? 'text-primary-100' : 'text-gray-500'}`}>{formatChallengeReward(message.challengeRequestId)}</p>
+                    </div>
+                  ) : (
+                    <p>{message.content}</p>
+                  )}
                   <div className="mt-1 flex items-center justify-between gap-2">
                     <p className={`text-[10px] ${mine ? 'text-primary-100' : 'text-gray-400'}`}>{message.type}</p>
                     {canPinMessages && (
