@@ -241,51 +241,88 @@ function ChatComposer({ isOpen, onReveal, onCollapse, onSend }: ChatComposerProp
 function GroupProfileSheet({ group, messages, onClose, onOpenStory }: { group: Group; messages: GroupMessage[]; onClose: () => void; onOpenStory: (storyId: string) => void }) {
   const stories = useAppStore((s) => s.stories);
   const communityUsers = useAppStore((s) => s.communityUsers);
+  const user = useAppStore((s) => s.user);
+  const openGroupChat = useAppStore((s) => s.openGroupChat);
+  const inviteMemberToGroup = useAppStore((s) => s.inviteMemberToGroup);
+  const updateGroupMeta = useAppStore((s) => s.updateGroupMeta);
+  const [actionFeedback, setActionFeedback] = useState('');
+
   const groupStories = stories.filter((story) => group.adminIds?.includes(story.userId) || story.userId === group.ownerId);
-  const pinnedMessages = messages.slice(-3).reverse();
-  const sharedMedia = messages.filter((message) => ['image', 'video', 'sticker'].includes(message.type)).slice(-6).reverse();
+  const pinnedMessages = messages.slice(-4).reverse();
+  const sharedMedia = messages.filter((message) => ['image', 'video', 'sticker'].includes(message.type)).slice(-8).reverse();
+  const owner = communityUsers.find((member) => member.id === group.ownerId);
+  const admins = communityUsers.filter((member) => group.adminIds?.includes(member.id));
+  const membersPreview = communityUsers.filter((member) => member.id !== group.ownerId).slice(0, 8);
+
+  const actionChips = [
+    { label: 'Open chat', onClick: () => openGroupChat(group.id) },
+    { label: 'Invite member', onClick: () => { inviteMemberToGroup(group.id); setActionFeedback('Member invite simulated.'); } },
+    { label: 'Manage members', onClick: () => setActionFeedback('Member manager placeholder.') },
+    { label: 'Edit group', onClick: () => { if (group.ownerId === user.id || group.adminIds?.includes(user.id)) { updateGroupMeta(group.id, { rules: `${group.rules || 'Be kind'} (updated)` }); setActionFeedback('Group rules updated locally.'); } else { setActionFeedback('Only admins can edit.'); } } },
+    { label: 'Share invite', onClick: async () => { try { await navigator.clipboard.writeText(group.inviteCode); setActionFeedback('Invite code copied.'); } catch { setActionFeedback(`Invite code: ${group.inviteCode}`); } } },
+  ];
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-50 flex items-end p-3">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <motion.div initial={{ y: 26 }} animate={{ y: 0 }} exit={{ y: 20 }} className="relative z-10 w-full max-h-[88%] overflow-y-auto rounded-3xl border border-gray-100 bg-white p-5">
-        <div className="mb-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-primary-200 to-pink-200 flex items-center justify-center text-2xl">{group.avatar}</div>
-            <div>
-              <h3 className="font-bold text-gray-900 text-lg">{group.name}</h3>
-              <p className="text-xs text-gray-500">@{group.username} • code {group.inviteCode}</p>
-            </div>
-          </div>
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-50 bg-white">
+      <div className="absolute inset-0 bg-black/10" onClick={onClose} />
+      <motion.div initial={{ y: 32, opacity: 0.8 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 24, opacity: 0 }} className="relative z-10 h-full overflow-y-auto">
+        <div className="sticky top-0 z-10 bg-white/95 backdrop-blur border-b border-gray-100 px-4 py-3 flex items-center justify-between">
+          <h3 className="font-semibold text-gray-900">Group info</h3>
           <button onClick={onClose} className="rounded-full p-2 hover:bg-gray-100"><X size={18} /></button>
         </div>
 
-        <p className="rounded-2xl bg-gray-50 px-3 py-2 text-sm text-gray-600">{group.description}</p>
+        <section className="px-4 pt-4 pb-3 bg-gradient-to-b from-primary-50 to-white border-b border-gray-100">
+          <div className="mx-auto h-20 w-20 rounded-3xl bg-gradient-to-br from-primary-200 to-pink-200 flex items-center justify-center text-4xl shadow-sm">{group.avatar}</div>
+          <h2 className="mt-3 text-center text-xl font-bold text-gray-900">{group.name}</h2>
+          <p className="text-center text-xs text-gray-500">@{group.username} • {group.inviteCode}</p>
+          <p className="mt-1 text-center text-xs text-gray-500">{group.isPrivate ? 'Private group' : 'Public group'} • {group.memberCount} participants</p>
+          <p className="mt-2 text-center text-sm text-gray-600">{group.description || 'No description yet.'}</p>
+        </section>
 
-        <div className="mt-4 rounded-2xl border border-gray-100 p-3">
-          <h4 className="mb-2 text-sm font-semibold text-gray-900 flex items-center gap-2"><Pin size={14} />Pinned items</h4>
-          {pinnedMessages.length === 0 ? <p className="text-xs text-gray-500">No pinned items yet.</p> : pinnedMessages.map((message) => {
-            const sender = communityUsers.find((user) => user.id === message.senderId);
-            return <p key={message.id} className="text-xs text-gray-600 py-1">{sender?.displayName || 'Member'}: {message.content}</p>;
-          })}
-        </div>
+        <section className="px-4 py-3">
+          <div className="grid grid-cols-2 gap-2">
+            {actionChips.map((chip) => (
+              <button key={chip.label} onClick={chip.onClick} className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:border-primary-300 hover:bg-primary-50/40">
+                {chip.label}
+              </button>
+            ))}
+          </div>
+          {actionFeedback && <p className="mt-2 text-xs text-primary-600">{actionFeedback}</p>}
+        </section>
 
-        <div className="mt-4 rounded-2xl border border-gray-100 p-3">
-          <h4 className="mb-2 text-sm font-semibold text-gray-900 flex items-center gap-2"><Images size={14} />Shared media</h4>
-          {sharedMedia.length === 0 ? <p className="text-xs text-gray-500">No shared media yet.</p> : (
-            <div className="grid grid-cols-2 gap-2">
-              {sharedMedia.map((item) => <div key={item.id} className="rounded-xl bg-gray-50 px-2 py-3 text-xs text-gray-600">{item.content}</div>)}
+        <div className="px-4 pb-6 space-y-3">
+          <section className="rounded-2xl border border-gray-100 bg-white p-4"><h4 className="text-sm font-semibold text-gray-900 mb-2">Description</h4><p className="text-sm text-gray-600">{group.description || 'No description provided.'}</p></section>
+          <section className="rounded-2xl border border-gray-100 bg-white p-4"><h4 className="text-sm font-semibold text-gray-900 mb-2">Rules</h4><p className="text-sm text-gray-600">{group.rules || 'No rules set.'}</p></section>
+
+          <section className="rounded-2xl border border-gray-100 bg-white p-4">
+            <h4 className="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2"><Pin size={14} />Pinned items</h4>
+            {pinnedMessages.length === 0 ? <p className="text-xs text-gray-500">No pinned items yet.</p> : pinnedMessages.map((message) => {
+              const sender = communityUsers.find((member) => member.id === message.senderId);
+              return <p key={message.id} className="text-xs text-gray-600 py-1">{sender?.displayName || 'Member'}: {message.content}</p>;
+            })}
+          </section>
+
+          <section className="rounded-2xl border border-gray-100 bg-white p-4">
+            <h4 className="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2"><Images size={14} />Shared media</h4>
+            {sharedMedia.length === 0 ? <p className="text-xs text-gray-500">No shared media yet.</p> : <div className="grid grid-cols-2 gap-2">{sharedMedia.map((item) => <div key={item.id} className="rounded-xl bg-gray-50 px-2 py-3 text-xs text-gray-600">{item.content}</div>)}</div>}
+          </section>
+
+          <section className="rounded-2xl border border-gray-100 bg-white p-4">
+            <h4 className="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2"><Sparkles size={14} />Group stories</h4>
+            {groupStories.length === 0 ? <p className="text-xs text-gray-500">No stories from admins yet.</p> : <div className="flex gap-2 overflow-x-auto pb-1">{groupStories.map((story) => <button key={story.id} onClick={() => onOpenStory(story.id)} className="shrink-0 rounded-xl border border-gray-100 bg-gray-50 px-3 py-2 text-xs">{story.avatar} {story.username}</button>)}</div>}
+          </section>
+
+          <section className="rounded-2xl border border-gray-100 bg-white p-4">
+            <h4 className="text-sm font-semibold text-gray-900 mb-2">Members & admins</h4>
+            <div className="space-y-2">
+              <p className="text-xs text-gray-500">Owner</p>
+              <p className="text-sm text-gray-700">{owner?.displayName || 'Unknown owner'}</p>
+              <p className="pt-1 text-xs text-gray-500">Admins / co-admins</p>
+              <div className="flex flex-wrap gap-2">{admins.map((admin) => <span key={admin.id} className="rounded-full bg-primary-50 px-2 py-1 text-xs text-primary-700">{admin.displayName}</span>)}</div>
+              <p className="pt-1 text-xs text-gray-500">Members</p>
+              <div className="flex flex-wrap gap-2">{membersPreview.map((member) => <span key={member.id} className="rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-600">{member.displayName}</span>)}</div>
             </div>
-          )}
-        </div>
-
-        <div className="mt-4 rounded-2xl border border-gray-100 p-3">
-          <h4 className="mb-2 text-sm font-semibold text-gray-900 flex items-center gap-2"><Sparkles size={14} />Group stories</h4>
-          {groupStories.length === 0 ? <p className="text-xs text-gray-500">No stories from admins yet.</p> : (
-            <div className="flex gap-2 overflow-x-auto pb-1">
-              {groupStories.map((story) => <button key={story.id} onClick={() => onOpenStory(story.id)} className="shrink-0 rounded-xl border border-gray-100 bg-gray-50 px-3 py-2 text-xs">{story.avatar} {story.username}</button>)}
-            </div>
-          )}
+          </section>
         </div>
       </motion.div>
     </motion.div>
@@ -506,7 +543,31 @@ export default function Chats() {
           })}
         </div>
 
-        {!dmAtBottom && <button onClick={() => { scrollToBottom('dm'); setDmUnreadCount(0); }} className="absolute bottom-24 left-4 z-30 h-10 w-10 rounded-full bg-white/95 border border-gray-200 shadow-lg flex items-center justify-center text-gray-600"><ChevronDown size={18} />{dmUnreadCount > 0 && <span className="absolute -top-1 -right-1 min-w-[18px] px-1 h-[18px] rounded-full bg-primary-500 text-white text-[10px] leading-[18px] text-center">{dmUnreadCount > 99 ? '99+' : dmUnreadCount}</span>}</button>}
+        <AnimatePresence>
+          {!dmAtBottom && (
+            <motion.button
+              onClick={() => { scrollToBottom('dm'); setDmUnreadCount(0); }}
+              initial={{ opacity: 0, scale: 0.75, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.82, y: 8 }}
+              transition={{ type: 'spring', stiffness: 360, damping: 24 }}
+              className="absolute bottom-24 left-4 z-30 h-10 w-10 rounded-full bg-white/95 border border-gray-200 shadow-lg flex items-center justify-center text-gray-600"
+            >
+              <ChevronDown size={18} />
+              {dmUnreadCount > 0 && (
+                <motion.span
+                  key={dmUnreadCount > 99 ? '99+' : dmUnreadCount}
+                  initial={{ scale: 0.72, opacity: 0.7, y: 2 }}
+                  animate={{ scale: 1, opacity: 1, y: 0 }}
+                  transition={{ type: 'spring', stiffness: 420, damping: 22 }}
+                  className="absolute -top-1 -right-1 min-w-[18px] px-1 h-[18px] rounded-full bg-primary-500 text-white text-[10px] leading-[18px] text-center"
+                >
+                  {dmUnreadCount > 99 ? '99+' : dmUnreadCount}
+                </motion.span>
+              )}
+            </motion.button>
+          )}
+        </AnimatePresence>
 
         <div className="absolute inset-x-0 bottom-0 z-20 h-16" onMouseEnter={() => setDirectComposerOpen(true)} onClick={() => setDirectComposerOpen(true)} onTouchStart={() => setDirectComposerOpen(true)} />
 
@@ -561,7 +622,31 @@ export default function Chats() {
           })}
         </div>
 
-        {!groupAtBottom && <button onClick={() => { scrollToBottom('group'); setGroupUnreadCount(0); }} className="absolute bottom-24 left-4 z-30 h-10 w-10 rounded-full bg-white/95 border border-gray-200 shadow-lg flex items-center justify-center text-gray-600"><ChevronDown size={18} />{groupUnreadCount > 0 && <span className="absolute -top-1 -right-1 min-w-[18px] px-1 h-[18px] rounded-full bg-primary-500 text-white text-[10px] leading-[18px] text-center">{groupUnreadCount > 99 ? '99+' : groupUnreadCount}</span>}</button>}
+        <AnimatePresence>
+          {!groupAtBottom && (
+            <motion.button
+              onClick={() => { scrollToBottom('group'); setGroupUnreadCount(0); }}
+              initial={{ opacity: 0, scale: 0.75, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.82, y: 8 }}
+              transition={{ type: 'spring', stiffness: 360, damping: 24 }}
+              className="absolute bottom-24 left-4 z-30 h-10 w-10 rounded-full bg-white/95 border border-gray-200 shadow-lg flex items-center justify-center text-gray-600"
+            >
+              <ChevronDown size={18} />
+              {groupUnreadCount > 0 && (
+                <motion.span
+                  key={groupUnreadCount > 99 ? '99+' : groupUnreadCount}
+                  initial={{ scale: 0.72, opacity: 0.7, y: 2 }}
+                  animate={{ scale: 1, opacity: 1, y: 0 }}
+                  transition={{ type: 'spring', stiffness: 420, damping: 22 }}
+                  className="absolute -top-1 -right-1 min-w-[18px] px-1 h-[18px] rounded-full bg-primary-500 text-white text-[10px] leading-[18px] text-center"
+                >
+                  {groupUnreadCount > 99 ? '99+' : groupUnreadCount}
+                </motion.span>
+              )}
+            </motion.button>
+          )}
+        </AnimatePresence>
 
         <div className="absolute inset-x-0 bottom-0 z-20 h-16" onMouseEnter={() => setGroupComposerOpen(true)} onClick={() => setGroupComposerOpen(true)} onTouchStart={() => setGroupComposerOpen(true)} />
 
