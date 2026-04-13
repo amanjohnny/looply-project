@@ -344,6 +344,8 @@ export default function Chats() {
   const groupScreenRef = useRef<HTMLDivElement | null>(null);
   const dmScrollRef = useRef<HTMLDivElement | null>(null);
   const groupScrollRef = useRef<HTMLDivElement | null>(null);
+  const dmDockRef = useRef<HTMLDivElement | null>(null);
+  const groupDockRef = useRef<HTMLDivElement | null>(null);
   const dmPrevCount = useRef(0);
   const groupPrevCount = useRef(0);
 
@@ -430,6 +432,22 @@ export default function Chats() {
     groupPrevCount.current = nextLen;
   }, [activeGroupMessages.length, groupAtBottom, activeGroup]);
 
+
+  useEffect(() => {
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (directComposerOpen && dmDockRef.current && !dmDockRef.current.contains(target)) {
+        setDirectComposerOpen(false);
+      }
+      if (groupComposerOpen && groupDockRef.current && !groupDockRef.current.contains(target)) {
+        setGroupComposerOpen(false);
+      }
+    };
+
+    window.addEventListener('pointerdown', onPointerDown);
+    return () => window.removeEventListener('pointerdown', onPointerDown);
+  }, [directComposerOpen, groupComposerOpen]);
+
   const handleCreateGroup = () => {
     const result = createGroup({ name: groupName, description: groupDescription, avatar: groupAvatar, username: groupUsername });
     if (!result.ok) {
@@ -460,10 +478,7 @@ export default function Chats() {
     const dmDockInset = directComposerOpen ? 206 : 44;
 
     return (
-      <motion.div ref={dmScreenRef} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -16 }} transition={{ type: 'spring', stiffness: 280, damping: 30 }} className="relative max-w-md mx-auto min-h-screen flex flex-col bg-white overflow-hidden" onMouseMove={(e) => {
-        const rect = dmScreenRef.current?.getBoundingClientRect();
-        if (rect && e.clientY > rect.bottom - 46) setDirectComposerOpen(true);
-      }}>
+      <motion.div ref={dmScreenRef} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -16 }} transition={{ type: 'spring', stiffness: 280, damping: 30 }} className="relative max-w-md mx-auto h-screen flex flex-col bg-white overflow-hidden">
         <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-gray-100 px-4 py-3 flex items-center gap-3">
           <button onClick={closeDirectThread} className="p-2 rounded-full hover:bg-gray-100"><ArrowLeft size={20} /></button>
           <button onClick={() => { const targetStory = stories.find((story) => story.userId === activeThreadUser.id); if (targetStory) openStoryViewer(targetStory.id); }} className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-200 to-pink-200 flex items-center justify-center text-xl">{activeThreadUser.avatar}</button>
@@ -479,10 +494,7 @@ export default function Chats() {
           const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 48;
           setDmAtBottom(atBottom);
           if (atBottom) setDmUnreadCount(0);
-        }} className={`flex-1 overflow-y-auto p-4 space-y-3 transition-colors ${background}`} style={{ paddingBottom: dmDockInset }} onClick={(e) => {
-          const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
-          if (e.clientY > rect.bottom - 90) setDirectComposerOpen(true);
-        }}>
+        }} className={`flex-1 overflow-y-auto p-4 space-y-3 transition-colors ${background}`} style={{ paddingBottom: dmDockInset }}>
           {activeThread.messages.length === 0 && <p className="text-sm text-gray-500 text-center">Start your first message.</p>}
           {activeThread.messages.map((message, index) => {
             const mine = message.senderId === user.id;
@@ -496,7 +508,9 @@ export default function Chats() {
 
         {!dmAtBottom && <button onClick={() => { scrollToBottom('dm'); setDmUnreadCount(0); }} className="absolute bottom-24 left-4 z-30 h-10 w-10 rounded-full bg-white/95 border border-gray-200 shadow-lg flex items-center justify-center text-gray-600"><ChevronDown size={18} />{dmUnreadCount > 0 && <span className="absolute -top-1 -right-1 min-w-[18px] px-1 h-[18px] rounded-full bg-primary-500 text-white text-[10px] leading-[18px] text-center">{dmUnreadCount > 99 ? '99+' : dmUnreadCount}</span>}</button>}
 
-        <div className="absolute inset-x-0 bottom-0 z-30 pointer-events-none">
+        <div className="absolute inset-x-0 bottom-0 z-20 h-16" onMouseEnter={() => setDirectComposerOpen(true)} onClick={() => setDirectComposerOpen(true)} onTouchStart={() => setDirectComposerOpen(true)} />
+
+        <div ref={dmDockRef} className="absolute inset-x-0 bottom-0 z-30 pointer-events-none">
           <div className="pointer-events-auto">
             <ChatComposer isOpen={directComposerOpen} onReveal={() => setDirectComposerOpen(true)} onCollapse={() => setDirectComposerOpen(false)} onSend={({ content, type }) => sendDirectMessage(activeThread.id, { content, type: type as DirectMessage['type'] })} />
           </div>
@@ -515,10 +529,7 @@ export default function Chats() {
     const groupDockInset = groupComposerOpen ? 206 : 44;
 
     return (
-      <motion.div ref={groupScreenRef} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -16 }} transition={{ type: 'spring', stiffness: 280, damping: 30 }} className="relative max-w-md mx-auto min-h-screen flex flex-col bg-white overflow-hidden" onMouseMove={(e) => {
-        const rect = groupScreenRef.current?.getBoundingClientRect();
-        if (rect && e.clientY > rect.bottom - 46) setGroupComposerOpen(true);
-      }}>
+      <motion.div ref={groupScreenRef} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -16 }} transition={{ type: 'spring', stiffness: 280, damping: 30 }} className="relative max-w-md mx-auto h-screen flex flex-col bg-white overflow-hidden">
         <header className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-gray-100 px-4 py-3 flex items-center gap-3">
           <button onClick={closeGroupChat} className="p-2 rounded-full hover:bg-gray-100"><ArrowLeft size={20} /></button>
           <button onClick={() => setShowGroupDetails(true)} className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-200 to-pink-200 flex items-center justify-center text-xl">{activeGroup.avatar}</button>
@@ -539,10 +550,7 @@ export default function Chats() {
           const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 48;
           setGroupAtBottom(atBottom);
           if (atBottom) setGroupUnreadCount(0);
-        }} className={`flex-1 overflow-y-auto p-4 space-y-3 ${background}`} style={{ paddingBottom: groupDockInset }} onClick={(e) => {
-          const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
-          if (e.clientY > rect.bottom - 90) setGroupComposerOpen(true);
-        }}>
+        }} className={`flex-1 overflow-y-auto p-4 space-y-3 ${background}`} style={{ paddingBottom: groupDockInset }}>
           {activeGroupMessages.map((message, index) => {
             const mine = message.senderId === user.id;
             return (
@@ -555,7 +563,9 @@ export default function Chats() {
 
         {!groupAtBottom && <button onClick={() => { scrollToBottom('group'); setGroupUnreadCount(0); }} className="absolute bottom-24 left-4 z-30 h-10 w-10 rounded-full bg-white/95 border border-gray-200 shadow-lg flex items-center justify-center text-gray-600"><ChevronDown size={18} />{groupUnreadCount > 0 && <span className="absolute -top-1 -right-1 min-w-[18px] px-1 h-[18px] rounded-full bg-primary-500 text-white text-[10px] leading-[18px] text-center">{groupUnreadCount > 99 ? '99+' : groupUnreadCount}</span>}</button>}
 
-        <div className="absolute inset-x-0 bottom-0 z-30 pointer-events-none">
+        <div className="absolute inset-x-0 bottom-0 z-20 h-16" onMouseEnter={() => setGroupComposerOpen(true)} onClick={() => setGroupComposerOpen(true)} onTouchStart={() => setGroupComposerOpen(true)} />
+
+        <div ref={groupDockRef} className="absolute inset-x-0 bottom-0 z-30 pointer-events-none">
           <div className="pointer-events-auto">
             <ChatComposer isOpen={groupComposerOpen} onReveal={() => setGroupComposerOpen(true)} onCollapse={() => setGroupComposerOpen(false)} onSend={({ content, type }) => sendGroupMessage(activeGroup.id, { content, type: type as GroupMessage['type'] })} />
           </div>
