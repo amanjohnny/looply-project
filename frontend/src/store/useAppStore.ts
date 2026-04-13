@@ -232,6 +232,52 @@ const mockCollectibleShowcase: Record<string, Collectible[]> = {
   u5: [{ id: 'u5-1', name: 'Art Panda', description: 'Creative panda paints', rarity: 'epic', image: '🐼' }],
 };
 
+
+const mockChallengeRequests: ChallengeRequest[] = [
+  {
+    id: 'cr-seed-1',
+    creatorId: 'u2',
+    creatorName: 'Mina Page',
+    creatorAvatar: '📖',
+    title: '7-Day Reading Sprint',
+    description: 'Read 20 pages each day and post your progress check-in.',
+    category: 'Reading',
+    difficulty: 'medium',
+    reward: { kind: 'coins', amount: 120 },
+    destination: { type: 'feed' },
+    status: 'open',
+    createdAt: new Date(Date.now() - 2600000),
+  },
+  {
+    id: 'cr-seed-2',
+    creatorId: 'u3',
+    creatorName: 'Nora Lin',
+    creatorAvatar: '🔬',
+    title: 'Kitchen Science Weekend',
+    description: 'Complete one safe experiment and share a short summary.',
+    category: 'Science',
+    difficulty: 'hard',
+    reward: { kind: 'collectible', collectibleId: 'u3-1', collectibleName: 'Science Rabbit', collectibleImage: '🐰' },
+    destination: { type: 'feed' },
+    status: 'open',
+    createdAt: new Date(Date.now() - 5200000),
+  },
+  {
+    id: 'cr-seed-3',
+    creatorId: 'u5',
+    creatorName: 'Ivy Rae',
+    creatorAvatar: '🎨',
+    title: 'Sketch + Reflect',
+    description: 'Do one 15-minute sketch and write 3 reflection points.',
+    category: 'Creativity',
+    difficulty: 'easy',
+    reward: { kind: 'coins', amount: 80 },
+    destination: { type: 'feed' },
+    status: 'open',
+    createdAt: new Date(Date.now() - 8600000),
+  },
+];
+
 const caseRewardConfig: Record<CaseType, {
   rewardCount: { min: number; max: number };
   rewardChances: Record<RewardType, number>;
@@ -325,7 +371,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   activeCommentPostId: null,
   blockedUserIds: [],
   reports: [],
-  challengeRequests: [],
+  challengeRequests: mockChallengeRequests,
   reservedCoinAmount: 0,
   reservedCollectibleIds: [],
   storyViewerOpen: false,
