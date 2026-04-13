@@ -238,29 +238,67 @@ function ChatComposer({ isOpen, onReveal, onCollapse, onSend }: ChatComposerProp
   );
 }
 
-function GroupProfileSheet({ group, messages, onClose, onOpenStory }: { group: Group; messages: GroupMessage[]; onClose: () => void; onOpenStory: (storyId: string) => void }) {
+function GroupProfileSheet({ group, messages, onClose, onOpenStory, onGoToMessage }: { group: Group; messages: GroupMessage[]; onClose: () => void; onOpenStory: (storyId: string) => void; onGoToMessage: (messageId: string) => void }) {
   const stories = useAppStore((s) => s.stories);
   const communityUsers = useAppStore((s) => s.communityUsers);
   const user = useAppStore((s) => s.user);
   const openGroupChat = useAppStore((s) => s.openGroupChat);
-  const inviteMemberToGroup = useAppStore((s) => s.inviteMemberToGroup);
-  const updateGroupMeta = useAppStore((s) => s.updateGroupMeta);
+  const addGroupParticipant = useAppStore((s) => s.addGroupParticipant);
+  const assignGroupAdmin = useAppStore((s) => s.assignGroupAdmin);
+  const updateGroupDescription = useAppStore((s) => s.updateGroupDescription);
+  const deleteGroup = useAppStore((s) => s.deleteGroup);
+  const addGroupStory = useAppStore((s) => s.addGroupStory);
+  const pinnedGroupMessageIds = useAppStore((s) => s.pinnedGroupMessageIds);
   const [actionFeedback, setActionFeedback] = useState('');
+  const [browserTab, setBrowserTab] = useState<'media' | 'links' | 'files'>('media');
+  const [pickerMode, setPickerMode] = useState<'participant' | 'admin' | null>(null);
+  const [pickerSearch, setPickerSearch] = useState('');
+  const [editingDescription, setEditingDescription] = useState(false);
+  const [descriptionDraft, setDescriptionDraft] = useState(group.description || '');
+  const [storyDraft, setStoryDraft] = useState('');
 
-  const groupStories = stories.filter((story) => group.adminIds?.includes(story.userId) || story.userId === group.ownerId);
-  const pinnedMessages = messages.slice(-4).reverse();
-  const sharedMedia = messages.filter((message) => ['image', 'video', 'sticker'].includes(message.type)).slice(-8).reverse();
+  const groupStories = stories.filter((story) => story.groupId === group.id || group.adminIds?.includes(story.userId) || story.userId === group.ownerId);
+  const messageById = new Map(messages.map((message) => [message.id, message]));
+  const pinnedMessages = (pinnedGroupMessageIds[group.id] || []).map((id) => messageById.get(id)).filter(Boolean) as GroupMessage[];
+  const mediaItems = messages.filter((message) => ['image', 'video', 'sticker'].includes(message.type));
+  const linkItems = messages.filter((message) => /(https?:\/\/\S+)/i.test(message.content));
+  const fileItems = messages.filter((message) => ['document', 'gift'].includes(message.type) || /document/i.test(message.content));
+
   const owner = communityUsers.find((member) => member.id === group.ownerId);
+  const memberIds = group.memberIds || [group.ownerId];
   const admins = communityUsers.filter((member) => group.adminIds?.includes(member.id));
-  const membersPreview = communityUsers.filter((member) => member.id !== group.ownerId).slice(0, 8);
+  const members = communityUsers.filter((member) => memberIds.includes(member.id));
+  const canManage = group.ownerId === user.id || group.adminIds?.includes(user.id);
 
-  const actionChips = [
-    { label: 'Open chat', onClick: () => openGroupChat(group.id) },
-    { label: 'Invite member', onClick: () => { inviteMemberToGroup(group.id); setActionFeedback('Member invite simulated.'); } },
-    { label: 'Manage members', onClick: () => setActionFeedback('Member manager placeholder.') },
-    { label: 'Edit group', onClick: () => { if (group.ownerId === user.id || group.adminIds?.includes(user.id)) { updateGroupMeta(group.id, { rules: `${group.rules || 'Be kind'} (updated)` }); setActionFeedback('Group rules updated locally.'); } else { setActionFeedback('Only admins can edit.'); } } },
-    { label: 'Share invite', onClick: async () => { try { await navigator.clipboard.writeText(group.inviteCode); setActionFeedback('Invite code copied.'); } catch { setActionFeedback(`Invite code: ${group.inviteCode}`); } } },
-  ];
+  const pickerCandidates = communityUsers.filter((member) => {
+    const query = pickerSearch.trim().toLowerCase();
+    const match = !query || member.displayName.toLowerCase().includes(query) || member.username.toLowerCase().includes(query);
+    if (!match) return false;
+    if (pickerMode === 'participant') return !memberIds.includes(member.id);
+    if (pickerMode === 'admin') return memberIds.includes(member.id) && !(group.adminIds || []).includes(member.id);
+    return false;
+  });
+
+  const contentItems = browserTab === 'media' ? mediaItems : browserTab === 'links' ? linkItems : fileItems;
+
+  const addStory = () => {
+    const result = addGroupStory(group.id, { caption: storyDraft, media: '✨' });
+    if (!result.ok) {
+      setActionFeedback(result.error || 'Unable to add story.');
+      return;
+    }
+    setStoryDraft('');
+    setActionFeedback('Group story added.');
+  };
+
+  const formatTime = (date: Date) => {
+    const diff = Date.now() - date.getTime();
+    const min = Math.max(1, Math.floor(diff / 60000));
+    if (min < 60) return `${min}m ago`;
+    const hr = Math.floor(min / 60);
+    if (hr < 24) return `${hr}h ago`;
+    return `${Math.floor(hr / 24)}d ago`;
+  };
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-50 bg-white">
@@ -281,11 +319,26 @@ function GroupProfileSheet({ group, messages, onClose, onOpenStory }: { group: G
 
         <section className="px-4 py-3">
           <div className="grid grid-cols-2 gap-2">
-            {actionChips.map((chip) => (
-              <button key={chip.label} onClick={chip.onClick} className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:border-primary-300 hover:bg-primary-50/40">
-                {chip.label}
-              </button>
-            ))}
+            <button onClick={() => openGroupChat(group.id)} className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:border-primary-300 hover:bg-primary-50/40">Open chat</button>
+            <button onClick={() => setPickerMode('participant')} className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:border-primary-300 hover:bg-primary-50/40">Invite member</button>
+            <button onClick={() => setPickerMode('admin')} className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:border-primary-300 hover:bg-primary-50/40">Assign co-admin</button>
+            <button onClick={() => setEditingDescription(true)} className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:border-primary-300 hover:bg-primary-50/40">Edit group</button>
+            <button onClick={async () => { try { await navigator.clipboard.writeText(group.inviteCode); setActionFeedback('Invite code copied.'); } catch { setActionFeedback(`Invite code: ${group.inviteCode}`); } }} className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:border-primary-300 hover:bg-primary-50/40">Share invite</button>
+            <button
+              onClick={() => {
+                if (!canManage) {
+                  setActionFeedback('Only admins can delete.');
+                  return;
+                }
+                const ok = window.confirm('Delete this group permanently?');
+                if (!ok) return;
+                deleteGroup(group.id);
+                onClose();
+              }}
+              className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-100"
+            >
+              Delete group
+            </button>
           </div>
           {actionFeedback && <p className="mt-2 text-xs text-primary-600">{actionFeedback}</p>}
         </section>
@@ -298,18 +351,44 @@ function GroupProfileSheet({ group, messages, onClose, onOpenStory }: { group: G
             <h4 className="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2"><Pin size={14} />Pinned items</h4>
             {pinnedMessages.length === 0 ? <p className="text-xs text-gray-500">No pinned items yet.</p> : pinnedMessages.map((message) => {
               const sender = communityUsers.find((member) => member.id === message.senderId);
-              return <p key={message.id} className="text-xs text-gray-600 py-1">{sender?.displayName || 'Member'}: {message.content}</p>;
+              return <button key={message.id} onClick={() => { onGoToMessage(message.id); onClose(); }} className="block w-full text-left text-xs text-gray-600 py-1 hover:text-primary-600">{sender?.displayName || 'Member'}: {message.content}</button>;
             })}
           </section>
 
           <section className="rounded-2xl border border-gray-100 bg-white p-4">
-            <h4 className="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2"><Images size={14} />Shared media</h4>
-            {sharedMedia.length === 0 ? <p className="text-xs text-gray-500">No shared media yet.</p> : <div className="grid grid-cols-2 gap-2">{sharedMedia.map((item) => <div key={item.id} className="rounded-xl bg-gray-50 px-2 py-3 text-xs text-gray-600">{item.content}</div>)}</div>}
+            <div className="mb-2 flex items-center justify-between">
+              <h4 className="text-sm font-semibold text-gray-900 flex items-center gap-2"><Images size={14} />Shared content</h4>
+              <div className="grid grid-cols-3 gap-1 rounded-lg bg-gray-100 p-1 text-[11px]">
+                {(['media', 'links', 'files'] as const).map((tab) => (
+                  <button key={tab} onClick={() => setBrowserTab(tab)} className={`rounded-md px-2 py-1 capitalize ${browserTab === tab ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`}>{tab}</button>
+                ))}
+              </div>
+            </div>
+            {contentItems.length === 0 ? <p className="text-xs text-gray-500">No {browserTab} items yet.</p> : (
+              <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                {contentItems.map((item) => {
+                  const sender = communityUsers.find((member) => member.id === item.senderId);
+                  return (
+                    <div key={item.id} className="rounded-xl border border-gray-100 bg-gray-50 p-2">
+                      <p className="text-xs font-medium text-gray-700">{item.content}</p>
+                      <p className="mt-1 text-[11px] text-gray-500">{sender?.displayName || 'Member'} • {formatTime(item.createdAt)}</p>
+                      <button onClick={() => { onGoToMessage(item.id); onClose(); }} className="mt-1 text-[11px] text-primary-600">Go to message</button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </section>
 
           <section className="rounded-2xl border border-gray-100 bg-white p-4">
             <h4 className="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2"><Sparkles size={14} />Group stories</h4>
-            {groupStories.length === 0 ? <p className="text-xs text-gray-500">No stories from admins yet.</p> : <div className="flex gap-2 overflow-x-auto pb-1">{groupStories.map((story) => <button key={story.id} onClick={() => onOpenStory(story.id)} className="shrink-0 rounded-xl border border-gray-100 bg-gray-50 px-3 py-2 text-xs">{story.avatar} {story.username}</button>)}</div>}
+            {groupStories.length === 0 ? <p className="text-xs text-gray-500">No group stories yet.</p> : <div className="flex gap-2 overflow-x-auto pb-1">{groupStories.map((story) => <button key={story.id} onClick={() => onOpenStory(story.id)} className="shrink-0 rounded-xl border border-gray-100 bg-gray-50 px-3 py-2 text-xs">{story.avatar} {story.username}</button>)}</div>}
+            {canManage && (
+              <div className="mt-2 flex gap-2">
+                <input value={storyDraft} onChange={(e) => setStoryDraft(e.target.value)} className="flex-1 rounded-lg border border-gray-200 px-2 py-1 text-xs" placeholder="Story caption" />
+                <button onClick={addStory} className="rounded-lg bg-primary-500 px-3 py-1 text-xs text-white">Add</button>
+              </div>
+            )}
           </section>
 
           <section className="rounded-2xl border border-gray-100 bg-white p-4">
@@ -320,10 +399,34 @@ function GroupProfileSheet({ group, messages, onClose, onOpenStory }: { group: G
               <p className="pt-1 text-xs text-gray-500">Admins / co-admins</p>
               <div className="flex flex-wrap gap-2">{admins.map((admin) => <span key={admin.id} className="rounded-full bg-primary-50 px-2 py-1 text-xs text-primary-700">{admin.displayName}</span>)}</div>
               <p className="pt-1 text-xs text-gray-500">Members</p>
-              <div className="flex flex-wrap gap-2">{membersPreview.map((member) => <span key={member.id} className="rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-600">{member.displayName}</span>)}</div>
+              <div className="flex flex-wrap gap-2">{members.map((member) => <span key={member.id} className="rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-600">{member.displayName}</span>)}</div>
             </div>
           </section>
         </div>
+
+        <AnimatePresence>
+          {pickerMode && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-20 bg-black/30 flex items-end">
+              <motion.div initial={{ y: 18 }} animate={{ y: 0 }} exit={{ y: 18 }} className="w-full rounded-t-3xl bg-white p-4 max-h-[70%] overflow-y-auto">
+                <div className="mb-2 flex items-center justify-between"><h5 className="font-semibold text-sm text-gray-900">{pickerMode === 'participant' ? 'Add participants' : 'Assign co-admin'}</h5><button onClick={() => setPickerMode(null)} className="p-1"><X size={16} /></button></div>
+                <input value={pickerSearch} onChange={(e) => setPickerSearch(e.target.value)} placeholder="Search users" className="mb-2 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm" />
+                <div className="space-y-2">{pickerCandidates.map((candidate) => <button key={candidate.id} onClick={() => { if (pickerMode === 'participant') addGroupParticipant(group.id, candidate.id); else assignGroupAdmin(group.id, candidate.id); setPickerMode(null); setActionFeedback(`${candidate.displayName} updated.`); }} className="w-full rounded-xl border border-gray-100 px-3 py-2 text-left text-sm hover:bg-gray-50">{candidate.displayName} <span className="text-xs text-gray-400">@{candidate.username}</span></button>)}</div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {editingDescription && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 z-20 bg-black/30 flex items-end">
+              <motion.div initial={{ y: 18 }} animate={{ y: 0 }} exit={{ y: 18 }} className="w-full rounded-t-3xl bg-white p-4">
+                <div className="mb-2 flex items-center justify-between"><h5 className="font-semibold text-sm text-gray-900">Edit description</h5><button onClick={() => setEditingDescription(false)} className="p-1"><X size={16} /></button></div>
+                <textarea value={descriptionDraft} onChange={(e) => setDescriptionDraft(e.target.value)} rows={4} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm" />
+                <button onClick={() => { updateGroupDescription(group.id, descriptionDraft); setEditingDescription(false); setActionFeedback('Description updated.'); }} className="mt-2 w-full rounded-lg bg-primary-500 py-2 text-sm text-white">Save</button>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.div>
     </motion.div>
   );
@@ -349,6 +452,8 @@ export default function Chats() {
     sendGroupMessage,
     inviteMemberToGroup,
     updateGroupMeta,
+    togglePinGroupMessage,
+    pinnedGroupMessageIds,
     directChatBackgroundByThreadId,
     groupChatBackgroundByGroupId,
     setDirectChatBackground,
@@ -376,6 +481,7 @@ export default function Chats() {
   const [groupAtBottom, setGroupAtBottom] = useState(true);
   const [dmUnreadCount, setDmUnreadCount] = useState(0);
   const [groupUnreadCount, setGroupUnreadCount] = useState(0);
+  const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
 
   const dmScreenRef = useRef<HTMLDivElement | null>(null);
   const groupScreenRef = useRef<HTMLDivElement | null>(null);
@@ -427,6 +533,16 @@ export default function Chats() {
     if (!el) return;
     el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
   };
+
+  const scrollToMessage = (messageId: string) => {
+    if (!groupScrollRef.current) return;
+    const target = groupScrollRef.current.querySelector(`[data-message-id="${messageId}"]`) as HTMLElement | null;
+    if (!target) return;
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setHighlightedMessageId(messageId);
+    window.setTimeout(() => setHighlightedMessageId((current) => (current === messageId ? null : current)), 1600);
+  };
+
 
   useEffect(() => {
     if (activeThread) {
@@ -536,8 +652,11 @@ export default function Chats() {
           {activeThread.messages.map((message, index) => {
             const mine = message.senderId === user.id;
             return (
-              <motion.div key={message.id} initial={{ opacity: 0, y: 22, scale: 0.9 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ delay: Math.min(index * 0.05, 0.28), type: 'spring', stiffness: 300, damping: 17, mass: 0.62 }} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm ${mine ? 'bg-primary-500 text-white' : 'bg-white border border-gray-200 text-gray-800'}`}><p>{message.content}</p><p className={`mt-1 text-[10px] ${mine ? 'text-primary-100' : 'text-gray-400'}`}>{message.type}</p></div>
+              <motion.div data-message-id={message.id} key={message.id} initial={{ opacity: 0, y: 22, scale: 0.9 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ delay: Math.min(index * 0.05, 0.28), type: 'spring', stiffness: 300, damping: 17, mass: 0.62 }} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
+                <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm transition-colors ${highlightedMessageId === message.id ? 'ring-2 ring-primary-300' : ''} ${mine ? 'bg-primary-500 text-white' : 'bg-white border border-gray-200 text-gray-800'}`}>
+                  <p>{message.content}</p>
+                  <p className={`mt-1 text-[10px] ${mine ? 'text-primary-100' : 'text-gray-400'}`}>{message.type}</p>
+                </div>
               </motion.div>
             );
           })}
@@ -588,6 +707,8 @@ export default function Chats() {
     const isAdmin = activeGroup.ownerId === user.id || activeGroup.adminIds?.includes(user.id);
     const background = groupChatBackgroundByGroupId[activeGroup.id] || 'bg-gray-50';
     const groupDockInset = groupComposerOpen ? 206 : 44;
+    const currentGroupId = activeGroup.id;
+    const canPinMessages = activeGroup.ownerId === user.id || activeGroup.adminIds?.includes(user.id);
 
     return (
       <motion.div ref={groupScreenRef} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -16 }} transition={{ type: 'spring', stiffness: 280, damping: 30 }} className="relative max-w-md mx-auto h-screen flex flex-col bg-white overflow-hidden">
@@ -615,8 +736,16 @@ export default function Chats() {
           {activeGroupMessages.map((message, index) => {
             const mine = message.senderId === user.id;
             return (
-              <motion.div key={message.id} initial={{ opacity: 0, y: 22, scale: 0.9 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ delay: Math.min(index * 0.05, 0.28), type: 'spring', stiffness: 300, damping: 17, mass: 0.62 }} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm ${mine ? 'bg-primary-500 text-white' : 'bg-white border border-gray-200 text-gray-800'}`}><p>{message.content}</p><p className={`mt-1 text-[10px] ${mine ? 'text-primary-100' : 'text-gray-400'}`}>{message.type}</p></div>
+              <motion.div data-message-id={message.id} key={message.id} initial={{ opacity: 0, y: 22, scale: 0.9 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ delay: Math.min(index * 0.05, 0.28), type: 'spring', stiffness: 300, damping: 17, mass: 0.62 }} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
+                <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm transition-colors ${highlightedMessageId === message.id ? 'ring-2 ring-primary-300' : ''} ${mine ? 'bg-primary-500 text-white' : 'bg-white border border-gray-200 text-gray-800'}`}>
+                  <p>{message.content}</p>
+                  <div className="mt-1 flex items-center justify-between gap-2">
+                    <p className={`text-[10px] ${mine ? 'text-primary-100' : 'text-gray-400'}`}>{message.type}</p>
+                    {canPinMessages && (
+                      <button onClick={() => togglePinGroupMessage(currentGroupId, message.id)} className={`text-[10px] ${(pinnedGroupMessageIds[currentGroupId] || []).includes(message.id) ? 'text-yellow-500' : mine ? 'text-primary-100' : 'text-gray-400'}`}>Pin</button>
+                    )}
+                  </div>
+                </div>
               </motion.div>
             );
           })}
@@ -657,7 +786,7 @@ export default function Chats() {
         </div>
 
         <AnimatePresence>
-          {showGroupDetails && <GroupProfileSheet group={activeGroup} messages={activeGroupMessages} onClose={() => setShowGroupDetails(false)} onOpenStory={(storyId) => openStoryViewer(storyId)} />}
+          {showGroupDetails && <GroupProfileSheet group={activeGroup} messages={activeGroupMessages} onClose={() => setShowGroupDetails(false)} onOpenStory={(storyId) => openStoryViewer(storyId)} onGoToMessage={scrollToMessage} />}
         </AnimatePresence>
       </motion.div>
     );

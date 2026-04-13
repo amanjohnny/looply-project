@@ -61,6 +61,7 @@ interface AppState {
   activeGroupChatId: string | null;
   directChatBackgroundByThreadId: Record<string, string>;
   groupChatBackgroundByGroupId: Record<string, string>;
+  pinnedGroupMessageIds: Record<string, string[]>;
   communityUsers: User[];
   selectedUser: User | null;
   userCollectibleShowcase: Record<string, Collectible[]>;
@@ -95,6 +96,12 @@ interface AppState {
   closeGroupChat: () => void;
   sendGroupMessage: (groupId: string, payload: { content: string; type: GroupMessage['type'] }) => { ok: boolean; error?: string };
   inviteMemberToGroup: (groupId: string) => void;
+  addGroupParticipant: (groupId: string, userId: string) => void;
+  assignGroupAdmin: (groupId: string, userId: string) => void;
+  togglePinGroupMessage: (groupId: string, messageId: string) => void;
+  deleteGroup: (groupId: string) => void;
+  updateGroupDescription: (groupId: string, description: string) => void;
+  addGroupStory: (groupId: string, payload: { caption: string; media?: string }) => { ok: boolean; error?: string };
   openDirectThread: (userId: string) => void;
   closeDirectThread: () => void;
   sendDirectMessage: (threadId: string, payload: { content: string; type: DirectMessage['type'] }) => { ok: boolean; error?: string };
@@ -174,10 +181,10 @@ const createUniqueInviteCode = (existingCodes: string[]) => {
 };
 
 const mockGroups: Group[] = [
-  { id: '1', name: 'Study Buddies', description: 'A supportive group for academic success', avatar: '📚', memberCount: 156, challengesCreated: 45, ownerId: 'u1', username: 'studybuddies', inviteCode: 'GL-BUD1', isPrivate: false, adminIds: ['u1'], rules: 'Be respectful and post your real progress.' },
-  { id: '2', name: 'Math Wizards', description: 'For those who love mathematics', avatar: '➗', memberCount: 89, challengesCreated: 32, ownerId: 'u2', username: 'mathwizards', inviteCode: 'GL-MATH', isPrivate: false, adminIds: ['u2'], rules: 'Help others learn, no answer dumping.' },
-  { id: '3', name: 'Book Lovers', description: 'Reading and sharing great books', avatar: '📖', memberCount: 234, challengesCreated: 67, ownerId: 'u3', username: 'booklovers', inviteCode: 'GL-BOOK', isPrivate: true, adminIds: ['u3'], rules: 'Spoiler-tag major reveals.' },
-  { id: '4', name: 'Science Club', description: 'Explore the wonders of science', avatar: '🔬', memberCount: 178, challengesCreated: 54, ownerId: 'u4', username: 'scienceclub', inviteCode: 'GL-SCI1', isPrivate: false, adminIds: ['u4'], rules: 'Safety first when sharing experiments.' },
+  { id: '1', name: 'Study Buddies', description: 'A supportive group for academic success', avatar: '📚', memberCount: 156, challengesCreated: 45, ownerId: 'u1', username: 'studybuddies', inviteCode: 'GL-BUD1', memberIds: ['u1','u2','u3'], isPrivate: false, adminIds: ['u1'], rules: 'Be respectful and post your real progress.' },
+  { id: '2', name: 'Math Wizards', description: 'For those who love mathematics', avatar: '➗', memberCount: 89, challengesCreated: 32, ownerId: 'u2', username: 'mathwizards', inviteCode: 'GL-MATH', memberIds: ['u2','u1','u4'], isPrivate: false, adminIds: ['u2'], rules: 'Help others learn, no answer dumping.' },
+  { id: '3', name: 'Book Lovers', description: 'Reading and sharing great books', avatar: '📖', memberCount: 234, challengesCreated: 67, ownerId: 'u3', username: 'booklovers', inviteCode: 'GL-BOOK', memberIds: ['u3','u5'], isPrivate: true, adminIds: ['u3'], rules: 'Spoiler-tag major reveals.' },
+  { id: '4', name: 'Science Club', description: 'Explore the wonders of science', avatar: '🔬', memberCount: 178, challengesCreated: 54, ownerId: 'u4', username: 'scienceclub', inviteCode: 'GL-SCI1', memberIds: ['u4','u1','u3'], isPrivate: false, adminIds: ['u4'], rules: 'Safety first when sharing experiments.' },
 ];
 
 const mockGroupMessagesById: Record<string, GroupMessage[]> = {
@@ -324,6 +331,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   activeGroupChatId: null,
   directChatBackgroundByThreadId: {},
   groupChatBackgroundByGroupId: {},
+  pinnedGroupMessageIds: {},
   communityUsers: mockCommunityUsers,
   selectedUser: null,
   userCollectibleShowcase: { ...mockCollectibleShowcase, u1: [] },
@@ -575,6 +583,7 @@ export const useAppStore = create<AppState>((set, get) => ({
           ownerId: curr.user.id,
           username: nextUsername,
           inviteCode,
+          memberIds: [curr.user.id],
           isPrivate: false,
           adminIds: [curr.user.id],
           rules: 'Be respectful and stay on topic.',
@@ -634,6 +643,81 @@ export const useAppStore = create<AppState>((set, get) => ({
         group.id === groupId ? { ...group, memberCount: group.memberCount + 1 } : group,
       ),
     })),
+
+  addGroupParticipant: (groupId, userId) =>
+    set((state) => ({
+      groups: state.groups.map((group) => {
+        if (group.id !== groupId) return group;
+        const nextMembers = Array.from(new Set([...(group.memberIds || [group.ownerId]), userId]));
+        return { ...group, memberIds: nextMembers, memberCount: nextMembers.length };
+      }),
+    })),
+
+  assignGroupAdmin: (groupId, userId) =>
+    set((state) => ({
+      groups: state.groups.map((group) => {
+        if (group.id !== groupId) return group;
+        const nextMembers = Array.from(new Set([...(group.memberIds || [group.ownerId]), userId]));
+        const nextAdmins = Array.from(new Set([...(group.adminIds || [group.ownerId]), userId]));
+        return { ...group, memberIds: nextMembers, adminIds: nextAdmins, memberCount: nextMembers.length };
+      }),
+    })),
+
+  togglePinGroupMessage: (groupId, messageId) =>
+    set((state) => {
+      const current = state.pinnedGroupMessageIds[groupId] || [];
+      const next = current.includes(messageId) ? current.filter((id) => id !== messageId) : [messageId, ...current].slice(0, 20);
+      return {
+        pinnedGroupMessageIds: {
+          ...state.pinnedGroupMessageIds,
+          [groupId]: next,
+        },
+      };
+    }),
+
+  deleteGroup: (groupId) =>
+    set((state) => {
+      const isDeletingActive = state.activeGroupChatId === groupId;
+      const nextGroups = state.groups.filter((group) => group.id !== groupId);
+      const nextMessages = { ...state.groupMessagesById };
+      delete nextMessages[groupId];
+      const nextPinned = { ...state.pinnedGroupMessageIds };
+      delete nextPinned[groupId];
+      return {
+        groups: nextGroups,
+        groupMessagesById: nextMessages,
+        pinnedGroupMessageIds: nextPinned,
+        activeGroupChatId: isDeletingActive ? null : state.activeGroupChatId,
+        selectedGroup: state.selectedGroup?.id === groupId ? null : state.selectedGroup,
+      };
+    }),
+
+  updateGroupDescription: (groupId, description) =>
+    set((state) => ({
+      groups: state.groups.map((group) => (group.id === groupId ? { ...group, description: description.trim() || group.description } : group)),
+    })),
+
+  addGroupStory: (groupId, payload) => {
+    const caption = payload.caption.trim();
+    if (!caption) return { ok: false, error: 'Story caption cannot be empty.' };
+    set((state) => ({
+      stories: [
+        {
+          id: `gs-${Date.now()}`,
+          userId: state.user.id,
+          username: state.user.displayName,
+          avatar: state.user.avatar,
+          caption,
+          media: payload.media || '✨',
+          hasViewed: false,
+          groupId,
+          createdAt: new Date(),
+        },
+        ...state.stories,
+      ],
+    }));
+    return { ok: true };
+  },
 
   openDirectThread: (userId) =>
     set((state) => {
