@@ -528,6 +528,16 @@ export default function Chats() {
   };
 
 
+  const revealComposerOnEdge = (target: 'dm' | 'group', y: number) => {
+    const el = target === 'dm' ? dmScreenRef.current : groupScreenRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    if (y > rect.bottom - 120) {
+      if (target === 'dm') setDirectComposerOpen(true);
+      else setGroupComposerOpen(true);
+    }
+  };
+
   const scrollToBottom = (target: 'dm' | 'group') => {
     const el = target === 'dm' ? dmScrollRef.current : groupScrollRef.current;
     if (!el) return;
