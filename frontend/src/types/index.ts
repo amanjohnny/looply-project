@@ -69,7 +69,21 @@ export interface ChallengeRequest {
   dueDate?: Date;
   reward: ChallengeReward;
   destination: ChallengeRequestDestination;
-  status: 'open' | 'accepted' | 'completed';
+  status: 'open' | 'accepted' | 'submitted' | 'completed' | 'rejected';
+  acceptedByUserId?: string;
+  acceptedByName?: string;
+  acceptedByAvatar?: string;
+  acceptedAt?: Date;
+  proof?: {
+    text: string;
+    image?: string;
+    note?: string;
+    submittedAt: Date;
+  };
+  reviewedAt?: Date;
+  reviewedByUserId?: string;
+  reviewNote?: string;
+  rewardTransferredAt?: Date;
   createdAt: Date;
 }
 
