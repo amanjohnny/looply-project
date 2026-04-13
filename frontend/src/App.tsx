@@ -13,6 +13,7 @@ import Comments from './pages/Comments';
 import StoryViewer from './pages/StoryViewer';
 import Create from './pages/Create';
 import Missions from './pages/Missions';
+import ChallengeMaker from './pages/ChallengeMaker';
 
 import { Home, User, MessageCircle, PlusSquare, Trophy } from 'lucide-react';
 
@@ -76,6 +77,11 @@ function App() {
 
       if (state.currentPage === 'settings' || state.currentPage === 'comments' || state.currentPage === 'missions' || state.currentPage === 'create' || state.currentPage === 'profile' || state.currentPage === 'groups') {
         setCurrentPage('feed');
+        return;
+      }
+
+      if (state.currentPage === 'challengeMaker') {
+        setCurrentPage('missions');
       }
     };
 
@@ -105,12 +111,14 @@ function App() {
         return <Settings />;
       case 'comments':
         return <Comments />;
+      case 'challengeMaker':
+        return <ChallengeMaker />;
       default:
         return <Feed />;
     }
   };
 
-  const hideBottomNav = ['editProfile', 'userProfile', 'settings', 'comments'].includes(currentPage)
+  const hideBottomNav = ['editProfile', 'userProfile', 'settings', 'comments', 'challengeMaker'].includes(currentPage)
     || storyViewerOpen
     || (currentPage === 'groups' && (Boolean(activeDirectThreadId) || Boolean(activeGroupChatId)));
 

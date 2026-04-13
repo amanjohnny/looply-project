@@ -906,12 +906,17 @@ export const useAppStore = create<AppState>((set, get) => ({
   createChallengeRequest: ({ title, description, category, difficulty, dueDate, reward, destination }) => {
     const trimmedTitle = title.trim();
     const trimmedDescription = description.trim();
-    if (!trimmedTitle || !trimmedDescription) return { ok: false, error: 'Title and description are required.' };
+    if (!trimmedTitle) return { ok: false, error: 'Challenge title is required.' };
+    if (!trimmedDescription) return { ok: false, error: 'Challenge description is required.' };
+
+    if (destination.type === 'group' && !destination.groupId) return { ok: false, error: 'Select a group destination.' };
+    if (destination.type === 'dm' && !destination.threadId) return { ok: false, error: 'Select a DM destination.' };
 
     const state = get();
     if (reward.kind === 'coins') {
       const available = state.user.coins - state.reservedCoinAmount;
-      if (reward.amount <= 0 || reward.amount > available) return { ok: false, error: 'Not enough available coins for that reward.' };
+      if (!Number.isFinite(reward.amount) || reward.amount <= 0) return { ok: false, error: 'Enter a valid coin reward amount greater than 0.' };
+      if (reward.amount > available) return { ok: false, error: 'Not enough available coins for that reward.' };
     }
 
     if (reward.kind === 'collectible') {
