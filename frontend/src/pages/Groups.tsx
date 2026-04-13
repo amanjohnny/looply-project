@@ -461,6 +461,7 @@ export default function Chats() {
     openUserProfile,
     stories,
     openStoryViewer,
+    challengeRequests,
   } = useAppStore();
   const challengeRequests = useAppStore((state) => state.challengeRequests || []);
 
