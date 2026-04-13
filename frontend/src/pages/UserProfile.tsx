@@ -3,7 +3,7 @@ import { useAppStore } from '../store/useAppStore';
 import { ArrowLeft, Award } from 'lucide-react';
 
 export default function UserProfile() {
-  const { selectedUser, posts, stories, collectibles, userCollectibleShowcase, user, setCurrentPage } = useAppStore();
+  const { selectedUser, posts, stories, collectibles, userCollectibleShowcase, user, setCurrentPage, activeDirectThreadId, activeGroupChatId } = useAppStore();
 
   const profilePosts = useMemo(() => {
     if (!selectedUser) return [];
@@ -21,13 +21,15 @@ export default function UserProfile() {
     return stories.filter((story) => story.userId === selectedUser.id);
   }, [stories, selectedUser]);
 
+  const backTarget = activeDirectThreadId || activeGroupChatId ? 'groups' : 'feed';
+
   if (!selectedUser) {
     return (
       <div className="max-w-md mx-auto p-6 pb-20">
         <div className="bg-white rounded-3xl p-6 shadow-card text-center">
           <p className="text-gray-500">User not found.</p>
           <button
-            onClick={() => setCurrentPage('feed')}
+            onClick={() => setCurrentPage(backTarget)}
             className="mt-4 px-4 py-2 rounded-xl bg-gray-100 text-gray-700"
           >
             Back to Feed
@@ -41,7 +43,7 @@ export default function UserProfile() {
     <div className="max-w-md mx-auto pb-20">
       <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-gray-100">
         <div className="flex items-center gap-3 px-4 py-3">
-          <button onClick={() => setCurrentPage('feed')} className="p-2 rounded-full hover:bg-gray-100">
+          <button onClick={() => setCurrentPage(backTarget)} className="p-2 rounded-full hover:bg-gray-100">
             <ArrowLeft size={20} className="text-gray-600" />
           </button>
           <h1 className="text-xl font-bold text-gray-900">@{selectedUser.username}</h1>

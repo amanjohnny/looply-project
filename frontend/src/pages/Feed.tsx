@@ -1,9 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import { Heart, MessageCircle, Send, Bookmark, MoreHorizontal, Award, Plus } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const mediaOptions = ['✨', '📸', '📝', '🎯', '🔥'];
 
 export default function Feed() {
   const { user, posts, stories, togglePostLike, setCurrentPage, openUserProfile, likedPostIds, openComments, openStoryViewer } = useAppStore();
