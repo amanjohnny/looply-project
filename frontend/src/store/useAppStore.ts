@@ -48,6 +48,7 @@ interface AppState {
   blockedUserIds: string[];
   reports: CommentReport[];
   challengeRequests: ChallengeRequest[];
+  completedChallengeRequestIds: string[];
   reservedCoinAmount: number;
   reservedCollectibleIds: string[];
   storyViewerOpen: boolean;
@@ -122,6 +123,9 @@ interface AppState {
   markStoryViewed: (storyId: string) => void;
   addStory: (payload: { caption: string; media?: string }) => { ok: boolean; error?: string };
   createChallengeRequest: (payload: { title: string; description: string; category: string; difficulty: Challenge['difficulty']; dueDate?: Date; reward: ChallengeReward; destination: ChallengeRequestDestination }) => { ok: boolean; error?: string };
+  acceptChallengeRequest: (requestId: string) => { ok: boolean; error?: string };
+  submitChallengeProof: (requestId: string, payload: { text: string; image?: string; note?: string }) => { ok: boolean; error?: string };
+  reviewChallengeSubmission: (requestId: string, decision: 'approve' | 'reject', note?: string) => { ok: boolean; error?: string };
   openStoryViewer: (storyId: string) => void;
   closeStoryViewer: () => void;
   nextStory: () => void;
@@ -372,6 +376,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   blockedUserIds: [],
   reports: [],
   challengeRequests: mockChallengeRequests,
+  completedChallengeRequestIds: [],
   reservedCoinAmount: 0,
   reservedCollectibleIds: [],
   storyViewerOpen: false,
@@ -901,12 +906,17 @@ export const useAppStore = create<AppState>((set, get) => ({
   createChallengeRequest: ({ title, description, category, difficulty, dueDate, reward, destination }) => {
     const trimmedTitle = title.trim();
     const trimmedDescription = description.trim();
-    if (!trimmedTitle || !trimmedDescription) return { ok: false, error: 'Title and description are required.' };
+    if (!trimmedTitle) return { ok: false, error: 'Challenge title is required.' };
+    if (!trimmedDescription) return { ok: false, error: 'Challenge description is required.' };
+
+    if (destination.type === 'group' && !destination.groupId) return { ok: false, error: 'Select a group destination.' };
+    if (destination.type === 'dm' && !destination.threadId) return { ok: false, error: 'Select a DM destination.' };
 
     const state = get();
     if (reward.kind === 'coins') {
       const available = state.user.coins - state.reservedCoinAmount;
-      if (reward.amount <= 0 || reward.amount > available) return { ok: false, error: 'Not enough available coins for that reward.' };
+      if (!Number.isFinite(reward.amount) || reward.amount <= 0) return { ok: false, error: 'Enter a valid coin reward amount greater than 0.' };
+      if (reward.amount > available) return { ok: false, error: 'Not enough available coins for that reward.' };
     }
 
     if (reward.kind === 'collectible') {
@@ -974,6 +984,135 @@ export const useAppStore = create<AppState>((set, get) => ({
       }
 
       return next as AppState;
+    });
+
+    return { ok: true };
+  },
+
+  acceptChallengeRequest: (requestId) => {
+    const state = get();
+    const request = state.challengeRequests.find((item) => item.id === requestId);
+    if (!request) return { ok: false, error: 'Challenge request not found.' };
+    if (request.status !== 'open') return { ok: false, error: 'Only open challenges can be accepted.' };
+    if (request.creatorId === state.user.id) return { ok: false, error: 'You cannot accept your own challenge.' };
+
+    set((curr) => ({
+      challengeRequests: curr.challengeRequests.map((item) => item.id === requestId ? {
+        ...item,
+        status: 'accepted',
+        acceptedByUserId: curr.user.id,
+        acceptedByName: curr.user.displayName,
+        acceptedByAvatar: curr.user.avatar,
+        acceptedAt: new Date(),
+      } : item),
+    }));
+
+    return { ok: true };
+  },
+
+  submitChallengeProof: (requestId, payload) => {
+    const state = get();
+    const request = state.challengeRequests.find((item) => item.id === requestId);
+    if (!request) return { ok: false, error: 'Challenge request not found.' };
+    if (request.status !== 'accepted') return { ok: false, error: 'Challenge must be accepted before proof submission.' };
+    if (request.acceptedByUserId !== state.user.id) return { ok: false, error: 'Only the accepted user can submit proof.' };
+
+    const trimmedText = payload.text.trim();
+    const trimmedNote = payload.note?.trim();
+    const trimmedImage = payload.image?.trim();
+    if (!trimmedText && !trimmedImage) return { ok: false, error: 'Add proof text or an image placeholder.' };
+
+    set((curr) => ({
+      challengeRequests: curr.challengeRequests.map((item) => item.id === requestId ? {
+        ...item,
+        status: 'submitted',
+        proof: {
+          text: trimmedText || 'Proof submitted',
+          image: trimmedImage || undefined,
+          note: trimmedNote || undefined,
+          submittedAt: new Date(),
+        },
+      } : item),
+    }));
+
+    return { ok: true };
+  },
+
+  reviewChallengeSubmission: (requestId, decision, note) => {
+    const state = get();
+    const request = state.challengeRequests.find((item) => item.id === requestId);
+    if (!request) return { ok: false, error: 'Challenge request not found.' };
+    if (request.status !== 'submitted') return { ok: false, error: 'Only submitted challenges can be reviewed.' };
+    if (request.creatorId !== state.user.id) return { ok: false, error: 'Only the challenge creator can review this proof.' };
+
+    if (decision === 'reject') {
+      set((curr) => ({
+        challengeRequests: curr.challengeRequests.map((item) => item.id === requestId ? {
+          ...item,
+          status: 'rejected',
+          reviewedAt: new Date(),
+          reviewedByUserId: curr.user.id,
+          reviewNote: note?.trim() || undefined,
+        } : item),
+      }));
+      return { ok: true };
+    }
+
+    if (!request.acceptedByUserId) return { ok: false, error: 'No accepted user found for this request.' };
+    if (request.rewardTransferredAt) return { ok: false, error: 'Reward was already transferred.' };
+
+    const approverId = state.user.id;
+    const receiverId = request.acceptedByUserId;
+    const now = new Date();
+    const coinRewardAmount = request.reward.kind === 'coins' ? request.reward.amount : null;
+    const collectibleRewardId = request.reward.kind === 'collectible' ? request.reward.collectibleId : null;
+
+    set((curr) => {
+      const approverShowcase = [...(curr.userCollectibleShowcase[approverId] || [])];
+      const receiverShowcase = [...(curr.userCollectibleShowcase[receiverId] || [])];
+      let nextReservedCoinAmount = curr.reservedCoinAmount;
+      let nextReservedCollectibleIds = curr.reservedCollectibleIds;
+
+      if (coinRewardAmount != null) {
+        nextReservedCoinAmount = Math.max(0, curr.reservedCoinAmount - coinRewardAmount);
+      } else if (collectibleRewardId) {
+        nextReservedCollectibleIds = curr.reservedCollectibleIds.filter((id) => id !== collectibleRewardId);
+        const collectibleIndex = approverShowcase.findIndex((item) => item.id === collectibleRewardId);
+        if (collectibleIndex >= 0) {
+          const [item] = approverShowcase.splice(collectibleIndex, 1);
+          receiverShowcase.unshift(item);
+        }
+      }
+
+      const applyCoinDelta = (profile: User, userId: string) => {
+        if (coinRewardAmount == null) return profile;
+        if (userId === approverId) return { ...profile, coins: Math.max(0, profile.coins - coinRewardAmount) };
+        if (userId === receiverId) return { ...profile, coins: profile.coins + coinRewardAmount };
+        return profile;
+      };
+
+      return {
+        challengeRequests: curr.challengeRequests.map((item) => item.id === requestId ? {
+          ...item,
+          status: 'completed',
+          reviewedAt: now,
+          reviewedByUserId: approverId,
+          reviewNote: note?.trim() || undefined,
+          rewardTransferredAt: now,
+        } : item),
+        completedChallengeRequestIds: curr.completedChallengeRequestIds.includes(requestId)
+          ? curr.completedChallengeRequestIds
+          : [requestId, ...curr.completedChallengeRequestIds],
+        user: applyCoinDelta(curr.user, curr.user.id),
+        communityUsers: curr.communityUsers.map((profile) => applyCoinDelta(profile, profile.id)),
+        userCollectibleShowcase: {
+          ...curr.userCollectibleShowcase,
+          [approverId]: approverShowcase,
+          [receiverId]: receiverShowcase,
+        },
+        reservedCoinAmount: nextReservedCoinAmount,
+        reservedCollectibleIds: nextReservedCollectibleIds,
+      };
     });
 
     return { ok: true };
