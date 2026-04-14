@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useAppStore } from './store/useAppStore';
 import { AnimatePresence, motion } from 'framer-motion';
 
@@ -14,6 +14,8 @@ import StoryViewer from './pages/StoryViewer';
 import Create from './pages/Create';
 import Missions from './pages/Missions';
 import ChallengeMaker from './pages/ChallengeMaker';
+import SplashScreen from './components/SplashScreen';
+import PositorySelectionScreen from './components/PositorySelectionScreen';
 
 import { Home, User, MessageCircle, PlusSquare, Trophy } from 'lucide-react';
 
@@ -43,6 +45,50 @@ function App() {
     closeDirectThread,
     closeGroupChat,
   } = useAppStore();
+  const [minSplashElapsed, setMinSplashElapsed] = useState(false);
+  const [appReady, setAppReady] = useState(false);
+  const [selectedPository, setSelectedPository] = useState<string | null>(() => localStorage.getItem('looply.selectedPository'));
+
+  useEffect(() => {
+    const splashTimer = window.setTimeout(() => {
+      setMinSplashElapsed(true);
+    }, 3000);
+
+    return () => window.clearTimeout(splashTimer);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const waitForWindowLoad = document.readyState === 'complete'
+      ? Promise.resolve()
+      : new Promise<void>((resolve) => {
+        window.addEventListener('load', () => resolve(), { once: true });
+      });
+
+    const waitForPaint = new Promise<void>((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+    });
+
+    const waitForFonts = 'fonts' in document ? document.fonts.ready : Promise.resolve();
+
+    Promise.all([waitForWindowLoad, waitForPaint, waitForFonts]).then(() => {
+      if (!cancelled) {
+        setAppReady(true);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const showSplash = !(minSplashElapsed && appReady);
+
+  const handlePositoryContinue = (positoryId: string) => {
+    localStorage.setItem('looply.selectedPository', positoryId);
+    setSelectedPository(positoryId);
+  };
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -88,6 +134,12 @@ function App() {
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [closeDirectThread, closeGroupChat, closeStoryViewer, setCurrentPage]);
+
+  if (showSplash) return <SplashScreen />;
+
+  if (!isAuthenticated && !selectedPository) {
+    return <PositorySelectionScreen onContinue={handlePositoryContinue} />;
+  }
 
   if (!isAuthenticated) return <Auth />;
 
