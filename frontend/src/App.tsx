@@ -16,6 +16,7 @@ import Missions from './pages/Missions';
 import ChallengeMaker from './pages/ChallengeMaker';
 import SplashScreen from './components/SplashScreen';
 import PositorySelectionScreen from './components/PositorySelectionScreen';
+import AkbnisAuthScreen from './components/AkbnisAuthScreen';
 
 import { Home, User, MessageCircle, PlusSquare, Trophy } from 'lucide-react';
 
@@ -52,7 +53,7 @@ function App() {
   useEffect(() => {
     const splashTimer = window.setTimeout(() => {
       setMinSplashElapsed(true);
-    }, 3000);
+    }, 5000);
 
     return () => window.clearTimeout(splashTimer);
   }, []);
@@ -139,6 +140,10 @@ function App() {
 
   if (!isAuthenticated && !selectedPository) {
     return <PositorySelectionScreen onContinue={handlePositoryContinue} />;
+  }
+
+  if (!isAuthenticated && selectedPository === 'akbnispository') {
+    return <AkbnisAuthScreen />;
   }
 
   if (!isAuthenticated) return <Auth />;

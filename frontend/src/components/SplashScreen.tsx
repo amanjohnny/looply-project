@@ -14,23 +14,23 @@ const ambientOrbs = [
 function Eye({ delay = 0 }: { delay?: number }) {
   return (
     <motion.span
-      className="relative inline-flex h-[2.3rem] w-[2.9rem] items-center justify-center sm:h-[2.55rem] sm:w-[3.2rem]"
+      className="relative inline-flex h-[2.15rem] w-[3.25rem] items-center justify-center sm:h-[2.35rem] sm:w-[3.55rem]"
       initial={{ scale: 0.8, y: 8, rotateX: -25 }}
-      animate={{ scale: [0.8, 1.06, 0.98, 1], y: [8, -5, 2, 0], rotateX: [-25, 0, 0, 0] }}
-      transition={{ duration: 0.72, ease: [0.24, 0.9, 0.32, 1], delay }}
+      animate={{ scale: [0.82, 1.05, 0.99, 1], y: [7, -4, 1, 0], rotateX: [-20, 0, 0, 0] }}
+      transition={{ duration: 0.62, ease: [0.24, 0.9, 0.32, 1], delay }}
     >
       <motion.span
         className="absolute inset-0 rounded-[999px] border border-gray-200/80 bg-gradient-to-b from-white via-[#fff9ff] to-[#f3ecff] shadow-[0_10px_20px_rgba(41,18,60,0.14)]"
-        animate={{ scaleY: [1, 1, 0.1, 1, 1, 1, 0.14, 1] }}
-        transition={{ duration: 6, times: [0, 0.16, 0.19, 0.24, 0.53, 0.72, 0.75, 0.8], repeat: Infinity, ease: 'easeInOut', delay: delay + 0.15 }}
+        animate={{ scaleY: [1, 1, 0.08, 1, 1, 0.12, 1] }}
+        transition={{ duration: 6, times: [0, 0.2, 0.23, 0.28, 0.66, 0.7, 0.75], repeat: Infinity, ease: 'easeInOut', delay: delay + 0.15 }}
       />
 
       <span className="pointer-events-none absolute inset-x-[20%] top-[18%] h-[25%] rounded-full bg-white/90" />
 
       <motion.span
-        className="relative z-10 h-[1.12rem] w-[1.12rem] rounded-full bg-gradient-to-b from-gray-900 to-gray-800"
-        animate={{ x: [0, -3.8, 3.2, 0], y: [0, -0.4, 0.4, 0] }}
-        transition={{ duration: 5.2, times: [0, 0.3, 0.64, 1], repeat: Infinity, ease: 'easeInOut', delay: delay + 0.55 }}
+        className="relative z-10 h-[1rem] w-[1rem] rounded-full bg-gradient-to-b from-gray-900 to-gray-800"
+        animate={{ x: [0, -3.2, 3, 0], y: [0, -0.2, 0.25, 0] }}
+        transition={{ duration: 4.8, times: [0, 0.34, 0.68, 1], repeat: Infinity, ease: 'easeInOut', delay: delay + 0.55 }}
       >
         <span className="absolute left-[22%] top-[20%] h-1.5 w-1.5 rounded-full bg-white/90" />
       </motion.span>
