@@ -1,4 +1,3 @@
-import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowRight, Building2, GraduationCap, Sparkles } from 'lucide-react';
 
@@ -25,10 +24,7 @@ const iconByKind = {
   community: Sparkles,
 } as const;
 
-export default function PositorySelectionScreen({ onContinue }: { onContinue: (positoryId: string) => void }) {
-  const [selected, setSelected] = useState<string>('akbnispository');
-  const selectedOption = useMemo(() => options.find((option) => option.id === selected), [selected]);
-
+export default function PositorySelectionScreen({ onContinueAkbnis }: { onContinueAkbnis: () => void }) {
   return (
     <div className="relative min-h-screen overflow-hidden bg-[#fdfbff] px-4 py-10 sm:py-12">
       <div className="pointer-events-none absolute inset-0">
@@ -45,27 +41,26 @@ export default function PositorySelectionScreen({ onContinue }: { onContinue: (p
         <div className="text-center">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary-500">Welcome to Looply</p>
           <h1 className="mt-3 text-3xl font-bold tracking-tight text-gray-900 sm:text-[2.2rem]">Choose your Pository</h1>
-          <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-gray-500">Pick your community space to begin. Only AKBNISPOSITORY is open in this preview.</p>
+          <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-gray-500">Only AKBNISPOSITORY is available right now. Other communities are visible previews.</p>
         </div>
 
         <div className="mt-8 space-y-3">
           {options.map((option, idx) => {
             const Icon = iconByKind[option.kind];
-            const active = selected === option.id;
 
             return (
               <motion.button
                 key={option.id}
                 type="button"
                 disabled={!option.enabled}
-                onClick={() => option.enabled && setSelected(option.id)}
+                onClick={() => option.enabled && onContinueAkbnis()}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.08 * idx, duration: 0.35 }}
-                className={`w-full rounded-2xl border px-4 py-4 text-left transition-all ${option.enabled ? '' : 'cursor-not-allowed opacity-65'} ${active ? 'border-primary-300 bg-white shadow-[0_14px_35px_rgba(98,44,129,0.14)]' : 'border-white/70 bg-white/80 hover:border-primary-200 hover:bg-white'}`}
+                className={`w-full rounded-2xl border px-4 py-4 text-left transition-all ${option.enabled ? 'border-primary-300 bg-white shadow-[0_14px_35px_rgba(98,44,129,0.14)] hover:translate-y-[-1px]' : 'cursor-not-allowed border-white/70 bg-white/75 opacity-65'}`}
               >
                 <div className="flex items-start gap-3">
-                  <div className={`mt-0.5 flex h-9 w-9 items-center justify-center rounded-xl ${active ? 'bg-primary-100 text-primary-600' : 'bg-gray-100 text-gray-500'}`}>
+                  <div className={`mt-0.5 flex h-9 w-9 items-center justify-center rounded-xl ${option.enabled ? 'bg-primary-100 text-primary-600' : 'bg-gray-100 text-gray-500'}`}>
                     <Icon size={18} />
                   </div>
                   <div className="flex-1">
@@ -77,26 +72,12 @@ export default function PositorySelectionScreen({ onContinue }: { onContinue: (p
                     </div>
                     <p className="mt-1 text-sm text-gray-500">{option.description}</p>
                   </div>
+                  {option.enabled && <ArrowRight size={16} className="text-primary-500" />}
                 </div>
               </motion.button>
             );
           })}
         </div>
-
-        <motion.button
-          type="button"
-          onClick={() => onContinue(selected)}
-          whileTap={{ scale: 0.985 }}
-          whileHover={{ y: -1 }}
-          className="mt-7 flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-primary-500 to-pink-500 py-3.5 text-sm font-semibold text-white shadow-[0_16px_35px_rgba(236,72,153,0.34)]"
-        >
-          Enter AKBNISPOSITORY
-          <ArrowRight size={18} />
-        </motion.button>
-
-        {!selectedOption?.enabled && (
-          <p className="mt-3 text-center text-xs font-medium text-gray-500">This Pository is not open yet. Please choose AKBNISPOSITORY.</p>
-        )}
       </motion.div>
     </div>
   );

@@ -20,6 +20,8 @@ import AkbnisAuthScreen from './components/AkbnisAuthScreen';
 
 import { Home, User, MessageCircle, PlusSquare, Trophy } from 'lucide-react';
 
+type EntryStage = 'splash' | 'pository' | 'akbnisAuth';
+
 const navItems = [
   { id: 'feed', icon: Home, label: 'Feed' },
   { id: 'missions', icon: Trophy, label: 'Missions' },
@@ -91,6 +93,49 @@ function App() {
     setSelectedPository(positoryId);
   };
 
+  const [entryStage, setEntryStage] = useState<EntryStage>('splash');
+  const [minSplashElapsed, setMinSplashElapsed] = useState(false);
+  const [appReady, setAppReady] = useState(false);
+
+  useEffect(() => {
+    const splashTimer = window.setTimeout(() => {
+      setMinSplashElapsed(true);
+    }, 5000);
+
+    return () => window.clearTimeout(splashTimer);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const waitForWindowLoad = document.readyState === 'complete'
+      ? Promise.resolve()
+      : new Promise<void>((resolve) => {
+        window.addEventListener('load', () => resolve(), { once: true });
+      });
+
+    const waitForPaint = new Promise<void>((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+    });
+
+    const waitForFonts = 'fonts' in document ? document.fonts.ready : Promise.resolve();
+
+    Promise.all([waitForWindowLoad, waitForPaint, waitForFonts]).then(() => {
+      if (!cancelled) setAppReady(true);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (entryStage !== 'splash') return;
+    if (minSplashElapsed && appReady) {
+      setEntryStage('pository');
+    }
+  }, [appReady, entryStage, minSplashElapsed]);
+
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
@@ -136,17 +181,14 @@ function App() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [closeDirectThread, closeGroupChat, closeStoryViewer, setCurrentPage]);
 
-  if (showSplash) return <SplashScreen />;
-
-  if (!isAuthenticated && !selectedPository) {
-    return <PositorySelectionScreen onContinue={handlePositoryContinue} />;
+  if (!isAuthenticated) {
+    if (entryStage === 'splash') return <SplashScreen />;
+    if (entryStage === 'pository') {
+      return <PositorySelectionScreen onContinueAkbnis={() => setEntryStage('akbnisAuth')} />;
+    }
+    if (entryStage === 'akbnisAuth') return <AkbnisAuthScreen />;
+    return <Auth />;
   }
-
-  if (!isAuthenticated && selectedPository === 'akbnispository') {
-    return <AkbnisAuthScreen />;
-  }
-
-  if (!isAuthenticated) return <Auth />;
 
   const renderPage = () => {
     switch (currentPage) {

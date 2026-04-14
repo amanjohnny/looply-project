@@ -7,30 +7,40 @@ function PrivacyEyes({ showPassword }: { showPassword: boolean }) {
   return (
     <div className="flex items-center gap-2">
       <motion.span
-        className="relative inline-flex h-9 w-12 items-center justify-center"
-        animate={showPassword ? { rotate: 0, y: 0 } : { rotate: -8, y: 1 }}
-        transition={{ duration: 0.35, ease: 'easeOut' }}
+        className="relative inline-flex h-8 w-11 items-center justify-center"
+        animate={showPassword ? { rotate: -2, y: 0 } : { rotate: -10, y: 1 }}
+        transition={{ duration: 0.3, ease: 'easeOut' }}
       >
         <span className="absolute inset-0 rounded-full border border-gray-200 bg-white shadow-[0_6px_16px_rgba(39,20,57,0.12)]" />
         <motion.span
           className="relative z-10 h-4 w-4 rounded-full bg-gray-900"
           animate={showPassword ? { scaleY: 0.55, x: -1 } : { scaleY: 0.1, x: -3 }}
-          transition={{ duration: 0.35, ease: 'easeInOut' }}
+          transition={{ duration: 0.3, ease: 'easeInOut' }}
         />
       </motion.span>
 
       <motion.span
-        className="relative inline-flex h-9 w-12 items-center justify-center"
-        animate={showPassword ? { rotate: 0, y: 0 } : { rotate: 9, y: 1 }}
-        transition={{ duration: 0.35, ease: 'easeOut' }}
+        className="relative inline-flex h-8 w-11 items-center justify-center"
+        animate={showPassword ? { rotate: 2, y: 0 } : { rotate: 10, y: 1 }}
+        transition={{ duration: 0.3, ease: 'easeOut' }}
       >
         <span className="absolute inset-0 rounded-full border border-gray-200 bg-white shadow-[0_6px_16px_rgba(39,20,57,0.12)]" />
         <motion.span
           className="relative z-10 h-4 w-4 rounded-full bg-gray-900"
-          animate={showPassword ? { scaleY: 0.75, x: 2 } : { scaleY: 0.08, x: 3 }}
-          transition={{ duration: 0.35, ease: 'easeInOut' }}
+          animate={showPassword ? { scaleY: 0.18, x: 3 } : { scaleY: 0.06, x: 3 }}
+          transition={{ duration: 0.3, ease: 'easeInOut' }}
         />
       </motion.span>
+    </div>
+  );
+}
+
+function LooplyWordmark({ showPassword }: { showPassword: boolean }) {
+  return (
+    <div className="flex items-center gap-1 text-[1.75rem] font-black tracking-[-0.045em] text-gray-900">
+      <span>L</span>
+      <PrivacyEyes showPassword={showPassword} />
+      <span>ply</span>
     </div>
   );
 }
@@ -39,10 +49,7 @@ export default function AkbnisAuthScreen() {
   const { login } = useAppStore();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-  });
+  const [formData, setFormData] = useState({ email: '', password: '' });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -79,12 +86,12 @@ export default function AkbnisAuthScreen() {
         </section>
 
         <section className="rounded-[24px] border border-white/70 bg-white/85 p-5 sm:p-6">
-          <div className="mb-5 flex items-center justify-between">
+          <div className="mb-5 flex items-center justify-between gap-3">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary-500">Looply Access</p>
               <h2 className="mt-1 text-2xl font-bold tracking-tight text-gray-900">Sign in</h2>
             </div>
-            <PrivacyEyes showPassword={showPassword} />
+            <LooplyWordmark showPassword={showPassword} />
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
