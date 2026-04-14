@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useAppStore } from './store/useAppStore';
 import { AnimatePresence, motion } from 'framer-motion';
 
@@ -14,6 +14,7 @@ import StoryViewer from './pages/StoryViewer';
 import Create from './pages/Create';
 import Missions from './pages/Missions';
 import ChallengeMaker from './pages/ChallengeMaker';
+import SplashScreen from './components/SplashScreen';
 
 import { Home, User, MessageCircle, PlusSquare, Trophy } from 'lucide-react';
 
@@ -43,6 +44,15 @@ function App() {
     closeDirectThread,
     closeGroupChat,
   } = useAppStore();
+  const [showSplash, setShowSplash] = useState(true);
+
+  useEffect(() => {
+    const splashTimer = window.setTimeout(() => {
+      setShowSplash(false);
+    }, 2300);
+
+    return () => window.clearTimeout(splashTimer);
+  }, []);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -88,6 +98,8 @@ function App() {
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [closeDirectThread, closeGroupChat, closeStoryViewer, setCurrentPage]);
+
+  if (showSplash) return <SplashScreen />;
 
   if (!isAuthenticated) return <Auth />;
 
