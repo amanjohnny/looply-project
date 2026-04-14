@@ -44,15 +44,44 @@ function App() {
     closeDirectThread,
     closeGroupChat,
   } = useAppStore();
-  const [showSplash, setShowSplash] = useState(true);
+  const [minSplashElapsed, setMinSplashElapsed] = useState(false);
+  const [appReady, setAppReady] = useState(false);
 
   useEffect(() => {
     const splashTimer = window.setTimeout(() => {
-      setShowSplash(false);
-    }, 2300);
+      setMinSplashElapsed(true);
+    }, 1700);
 
     return () => window.clearTimeout(splashTimer);
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const waitForWindowLoad = document.readyState === 'complete'
+      ? Promise.resolve()
+      : new Promise<void>((resolve) => {
+        window.addEventListener('load', () => resolve(), { once: true });
+      });
+
+    const waitForPaint = new Promise<void>((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+    });
+
+    const waitForFonts = 'fonts' in document ? document.fonts.ready : Promise.resolve();
+
+    Promise.all([waitForWindowLoad, waitForPaint, waitForFonts]).then(() => {
+      if (!cancelled) {
+        setAppReady(true);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const showSplash = !(minSplashElapsed && appReady);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
