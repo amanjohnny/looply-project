@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useAppStore } from './store/useAppStore';
 import { AnimatePresence, motion } from 'framer-motion';
 
@@ -14,8 +14,13 @@ import StoryViewer from './pages/StoryViewer';
 import Create from './pages/Create';
 import Missions from './pages/Missions';
 import ChallengeMaker from './pages/ChallengeMaker';
+import SplashScreen from './components/SplashScreen';
+import PositorySelectionScreen from './components/PositorySelectionScreen';
+import AkbnisAuthScreen from './components/AkbnisAuthScreen';
 
 import { Home, User, MessageCircle, PlusSquare, Trophy } from 'lucide-react';
+
+type EntryStage = 'splash' | 'pository' | 'akbnisAuth';
 
 const navItems = [
   { id: 'feed', icon: Home, label: 'Feed' },
@@ -43,6 +48,49 @@ function App() {
     closeDirectThread,
     closeGroupChat,
   } = useAppStore();
+
+  const [entryStage, setEntryStage] = useState<EntryStage>('splash');
+  const [minSplashElapsed, setMinSplashElapsed] = useState(false);
+  const [appReady, setAppReady] = useState(false);
+
+  useEffect(() => {
+    const splashTimer = window.setTimeout(() => {
+      setMinSplashElapsed(true);
+    }, 5000);
+
+    return () => window.clearTimeout(splashTimer);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const waitForWindowLoad = document.readyState === 'complete'
+      ? Promise.resolve()
+      : new Promise<void>((resolve) => {
+        window.addEventListener('load', () => resolve(), { once: true });
+      });
+
+    const waitForPaint = new Promise<void>((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+    });
+
+    const waitForFonts = 'fonts' in document ? document.fonts.ready : Promise.resolve();
+
+    Promise.all([waitForWindowLoad, waitForPaint, waitForFonts]).then(() => {
+      if (!cancelled) setAppReady(true);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (entryStage !== 'splash') return;
+    if (minSplashElapsed && appReady) {
+      setEntryStage('pository');
+    }
+  }, [appReady, entryStage, minSplashElapsed]);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -89,7 +137,14 @@ function App() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [closeDirectThread, closeGroupChat, closeStoryViewer, setCurrentPage]);
 
-  if (!isAuthenticated) return <Auth />;
+  if (!isAuthenticated) {
+    if (entryStage === 'splash') return <SplashScreen />;
+    if (entryStage === 'pository') {
+      return <PositorySelectionScreen onContinueAkbnis={() => setEntryStage('akbnisAuth')} />;
+    }
+    if (entryStage === 'akbnisAuth') return <AkbnisAuthScreen />;
+    return <Auth />;
+  }
 
   const renderPage = () => {
     switch (currentPage) {
