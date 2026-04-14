@@ -15,6 +15,7 @@ import Create from './pages/Create';
 import Missions from './pages/Missions';
 import ChallengeMaker from './pages/ChallengeMaker';
 import SplashScreen from './components/SplashScreen';
+import PositorySelectionScreen from './components/PositorySelectionScreen';
 
 import { Home, User, MessageCircle, PlusSquare, Trophy } from 'lucide-react';
 
@@ -46,11 +47,12 @@ function App() {
   } = useAppStore();
   const [minSplashElapsed, setMinSplashElapsed] = useState(false);
   const [appReady, setAppReady] = useState(false);
+  const [selectedPository, setSelectedPository] = useState<string | null>(() => localStorage.getItem('looply.selectedPository'));
 
   useEffect(() => {
     const splashTimer = window.setTimeout(() => {
       setMinSplashElapsed(true);
-    }, 1700);
+    }, 3000);
 
     return () => window.clearTimeout(splashTimer);
   }, []);
@@ -82,6 +84,11 @@ function App() {
   }, []);
 
   const showSplash = !(minSplashElapsed && appReady);
+
+  const handlePositoryContinue = (positoryId: string) => {
+    localStorage.setItem('looply.selectedPository', positoryId);
+    setSelectedPository(positoryId);
+  };
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -129,6 +136,10 @@ function App() {
   }, [closeDirectThread, closeGroupChat, closeStoryViewer, setCurrentPage]);
 
   if (showSplash) return <SplashScreen />;
+
+  if (!isAuthenticated && !selectedPository) {
+    return <PositorySelectionScreen onContinue={handlePositoryContinue} />;
+  }
 
   if (!isAuthenticated) return <Auth />;
 
