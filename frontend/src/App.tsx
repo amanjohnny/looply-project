@@ -48,6 +48,50 @@ function App() {
     closeDirectThread,
     closeGroupChat,
   } = useAppStore();
+  const [minSplashElapsed, setMinSplashElapsed] = useState(false);
+  const [appReady, setAppReady] = useState(false);
+  const [selectedPository, setSelectedPository] = useState<string | null>(() => localStorage.getItem('looply.selectedPository'));
+
+  useEffect(() => {
+    const splashTimer = window.setTimeout(() => {
+      setMinSplashElapsed(true);
+    }, 5000);
+
+    return () => window.clearTimeout(splashTimer);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const waitForWindowLoad = document.readyState === 'complete'
+      ? Promise.resolve()
+      : new Promise<void>((resolve) => {
+        window.addEventListener('load', () => resolve(), { once: true });
+      });
+
+    const waitForPaint = new Promise<void>((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+    });
+
+    const waitForFonts = 'fonts' in document ? document.fonts.ready : Promise.resolve();
+
+    Promise.all([waitForWindowLoad, waitForPaint, waitForFonts]).then(() => {
+      if (!cancelled) {
+        setAppReady(true);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const showSplash = !(minSplashElapsed && appReady);
+
+  const handlePositoryContinue = (positoryId: string) => {
+    localStorage.setItem('looply.selectedPository', positoryId);
+    setSelectedPository(positoryId);
+  };
 
   const [entryStage, setEntryStage] = useState<EntryStage>('splash');
   const [minSplashElapsed, setMinSplashElapsed] = useState(false);
