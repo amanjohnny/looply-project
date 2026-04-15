@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react';
 import { ArrowLeft, Coins, Sparkles, Target, Trophy } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAppStore } from '../store/useAppStore';
 import type { ChallengeReward, ChallengeRequestDestination } from '../types';
+import { bounceSpring, cardIn, createBurst, subtleShake, tapBounce, tabBounce } from '../lib/motion';
 
 const challengeCategories = ['General', 'Study', 'Fitness', 'Creativity', 'Science', 'Productivity'];
 
@@ -32,6 +33,8 @@ export default function ChallengeMaker() {
   const [groupId, setGroupId] = useState('');
   const [threadId, setThreadId] = useState('');
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [shakeState, setShakeState] = useState<'idle' | 'shake'>('idle');
+  const [celebrate, setCelebrate] = useState(false);
 
   const myCollectibles = useMemo(
     () => (userCollectibleShowcase[user.id] || collectibles).filter((item) => !reservedCollectibleIds.includes(item.id)),
@@ -49,6 +52,12 @@ export default function ChallengeMaker() {
   );
 
   const selectedCollectible = myCollectibles.find((item) => item.id === collectibleId);
+
+  const triggerShake = (message: string) => {
+    setFeedback(message);
+    setShakeState('shake');
+    window.setTimeout(() => setShakeState('idle'), 320);
+  };
 
   const validate = (): string | null => {
     if (!title.trim()) return 'Please enter a challenge title.';
@@ -72,7 +81,7 @@ export default function ChallengeMaker() {
   const publishChallenge = () => {
     const error = validate();
     if (error) {
-      setFeedback(error);
+      triggerShake(error);
       return;
     }
 
@@ -102,11 +111,14 @@ export default function ChallengeMaker() {
     });
 
     if (!result.ok) {
-      setFeedback(result.error || 'Unable to publish challenge request.');
+      triggerShake(result.error || 'Unable to publish challenge request.');
       return;
     }
 
-    setCurrentPage(destinationType === 'feed' ? 'feed' : 'groups');
+    setCelebrate(true);
+    window.setTimeout(() => {
+      setCurrentPage(destinationType === 'feed' ? 'feed' : 'groups');
+    }, 320);
   };
 
   const lockSummary = rewardType === 'coins'
@@ -117,11 +129,28 @@ export default function ChallengeMaker() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-primary-50 via-white to-pink-50 pb-24">
+      <AnimatePresence>
+        {celebrate && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center">
+            {createBurst(14).map((particle) => (
+              <motion.span
+                key={particle.id}
+                className="absolute rounded-full bg-pink-300/75"
+                style={{ width: particle.size, height: particle.size }}
+                initial={{ x: 0, y: 0, opacity: 0.95, scale: 1 }}
+                animate={{ x: particle.x, y: particle.y, opacity: 0, scale: 0.8 }}
+                transition={{ duration: particle.duration, delay: particle.delay, ease: 'easeOut' }}
+              />
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="sticky top-0 z-30 border-b border-primary-100 bg-white/85 backdrop-blur">
         <div className="mx-auto flex max-w-md items-center gap-3 px-4 py-3">
-          <button onClick={() => setCurrentPage('missions')} className="rounded-xl bg-gray-100 p-2 text-gray-700">
+          <motion.button {...tapBounce} transition={bounceSpring} onClick={() => setCurrentPage('missions')} className="rounded-xl bg-gray-100 p-2 text-gray-700">
             <ArrowLeft size={18} />
-          </button>
+          </motion.button>
           <div>
             <h1 className="text-lg font-bold text-gray-900">Challenge Maker</h1>
             <p className="text-xs text-gray-500">Build and publish a challenge request</p>
@@ -129,8 +158,8 @@ export default function ChallengeMaker() {
         </div>
       </div>
 
-      <div className="mx-auto max-w-md space-y-4 px-4 pt-4">
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="rounded-3xl border border-primary-100 bg-white p-4 shadow-sm">
+      <motion.div variants={subtleShake} initial="idle" animate={shakeState} className="mx-auto max-w-md space-y-4 px-4 pt-4">
+        <motion.div variants={cardIn} initial="initial" animate="animate" transition={bounceSpring} className="rounded-3xl border border-primary-100 bg-white p-4 shadow-sm">
           <label className="text-xs font-semibold uppercase tracking-wide text-primary-600">Challenge Basics</label>
           <div className="mt-3 space-y-3">
             <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Challenge title" className="input-field" />
@@ -149,14 +178,14 @@ export default function ChallengeMaker() {
           </div>
         </motion.div>
 
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.04 }} className="rounded-3xl border border-primary-100 bg-white p-4 shadow-sm">
+        <motion.div variants={cardIn} initial="initial" animate="animate" transition={{ ...bounceSpring, delay: 0.04 }} className="rounded-3xl border border-primary-100 bg-white p-4 shadow-sm">
           <div className="flex items-center justify-between">
             <label className="text-xs font-semibold uppercase tracking-wide text-primary-600">Reward</label>
             <span className="text-[11px] text-gray-500">Available: {availableCoins} coins</span>
           </div>
           <div className="mt-3 grid grid-cols-2 gap-2 rounded-xl bg-gray-100 p-1">
-            <button onClick={() => setRewardType('coins')} className={`rounded-lg py-2 text-xs font-semibold ${rewardType === 'coins' ? 'bg-white text-gray-900 shadow-soft' : 'text-gray-500'}`}>Coin Reward</button>
-            <button onClick={() => setRewardType('collectible')} className={`rounded-lg py-2 text-xs font-semibold ${rewardType === 'collectible' ? 'bg-white text-gray-900 shadow-soft' : 'text-gray-500'}`}>Collectible</button>
+            <motion.button {...tabBounce} onClick={() => setRewardType('coins')} className={`rounded-lg py-2 text-xs font-semibold ${rewardType === 'coins' ? 'bg-white text-gray-900 shadow-soft' : 'text-gray-500'}`}>Coin Reward</motion.button>
+            <motion.button {...tabBounce} onClick={() => setRewardType('collectible')} className={`rounded-lg py-2 text-xs font-semibold ${rewardType === 'collectible' ? 'bg-white text-gray-900 shadow-soft' : 'text-gray-500'}`}>Collectible</motion.button>
           </div>
 
           {rewardType === 'coins' ? (
@@ -184,13 +213,13 @@ export default function ChallengeMaker() {
           )}
         </motion.div>
 
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }} className="rounded-3xl border border-primary-100 bg-white p-4 shadow-sm">
+        <motion.div variants={cardIn} initial="initial" animate="animate" transition={{ ...bounceSpring, delay: 0.08 }} className="rounded-3xl border border-primary-100 bg-white p-4 shadow-sm">
           <label className="text-xs font-semibold uppercase tracking-wide text-primary-600">Destination</label>
           <div className="mt-3 grid grid-cols-3 gap-2 rounded-xl bg-gray-100 p-1">
             {(['feed', 'group', 'dm'] as const).map((item) => (
-              <button key={item} onClick={() => setDestinationType(item)} className={`rounded-lg py-2 text-xs font-semibold capitalize ${destinationType === item ? 'bg-white text-gray-900 shadow-soft' : 'text-gray-500'}`}>
+              <motion.button key={item} {...tabBounce} onClick={() => setDestinationType(item)} className={`rounded-lg py-2 text-xs font-semibold capitalize ${destinationType === item ? 'bg-white text-gray-900 shadow-soft' : 'text-gray-500'}`}>
                 {item}
-              </button>
+              </motion.button>
             ))}
           </div>
           {destinationType === 'group' && (
@@ -207,7 +236,7 @@ export default function ChallengeMaker() {
           )}
         </motion.div>
 
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }} className="rounded-3xl border border-primary-200 bg-gradient-to-r from-primary-50 to-pink-50 p-4">
+        <motion.div variants={cardIn} initial="initial" animate="animate" transition={{ ...bounceSpring, delay: 0.12 }} className="rounded-3xl border border-primary-200 bg-gradient-to-r from-primary-50 to-pink-50 p-4">
           <div className="flex items-center gap-2 text-primary-700">
             <Sparkles size={14} />
             <p className="text-xs font-semibold uppercase tracking-wide">Lock Summary</p>
@@ -224,12 +253,12 @@ export default function ChallengeMaker() {
         </motion.div>
 
         {feedback && <p className="rounded-xl bg-red-50 px-3 py-2 text-xs text-red-600">{feedback}</p>}
-      </div>
+      </motion.div>
 
       <div className="fixed bottom-0 left-0 right-0 border-t border-gray-100 bg-white/95 p-3 backdrop-blur safe-area-bottom">
         <div className="mx-auto flex max-w-md gap-2">
-          <button onClick={() => setCurrentPage('missions')} className="flex-1 rounded-xl bg-gray-100 py-3 text-sm font-semibold text-gray-700">Cancel</button>
-          <button onClick={publishChallenge} className="flex-1 rounded-xl bg-gradient-to-r from-primary-500 to-pink-500 py-3 text-sm font-semibold text-white shadow-glow-pink">Publish Challenge</button>
+          <motion.button {...tapBounce} transition={bounceSpring} onClick={() => setCurrentPage('missions')} className="flex-1 rounded-xl bg-gray-100 py-3 text-sm font-semibold text-gray-700">Cancel</motion.button>
+          <motion.button {...tapBounce} transition={bounceSpring} onClick={publishChallenge} className="flex-1 rounded-xl bg-gradient-to-r from-primary-500 to-pink-500 py-3 text-sm font-semibold text-white shadow-glow-pink">Publish Challenge</motion.button>
         </div>
       </div>
     </div>

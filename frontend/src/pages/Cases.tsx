@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useAppStore } from '../store/useAppStore';
 import type { Rarity, CaseType, CaseReward } from '../types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Box, RefreshCw, Sparkles, Coins, Zap } from 'lucide-react';
+import { createBurst, subtleShake, bounceSpring } from '../lib/motion';
 
 const caseTypes = [
   { id: 'basic', name: 'Basic Case', price: 100, color: 'from-gray-400 to-gray-500', icon: '📦', rewardText: '1 reward' },
@@ -30,10 +31,16 @@ export default function Cases() {
   const [isOpening, setIsOpening] = useState(false);
   const [showResult, setShowResult] = useState(false);
   const [openCount, setOpenCount] = useState(0);
+  const [shakeCaseId, setShakeCaseId] = useState<string | null>(null);
+  const rewardBurst = useMemo(() => createBurst(16), []);
 
   const handleOpenCase = (caseId: string) => {
     const caseType = caseTypes.find(c => c.id === caseId);
-    if (!caseType || user.coins < caseType.price) return;
+    if (!caseType || user.coins < caseType.price) {
+      setShakeCaseId(caseId);
+      window.setTimeout(() => setShakeCaseId((prev) => (prev === caseId ? null : prev)), 320);
+      return;
+    }
 
     setSelectedCase(caseId);
     setIsOpening(true);
@@ -103,8 +110,12 @@ export default function Cases() {
             return (
               <motion.div
                 key={caseType.id}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
+                variants={subtleShake}
+                initial="idle"
+                animate={shakeCaseId === caseType.id ? 'shake' : 'idle'}
+                whileHover={{ scale: 1.02, y: -2 }}
+                whileTap={{ scale: 0.97 }}
+                transition={bounceSpring}
                 onClick={() => !isOpening && handleOpenCase(caseType.id)}
                 className={`bg-white rounded-2xl p-5 shadow-card cursor-pointer transition-all ${
                   !canAfford ? 'opacity-60' : ''
@@ -238,6 +249,22 @@ export default function Cases() {
               onClick={closeResult}
             />
 
+
+
+            {showResult && (
+              <div className="pointer-events-none absolute inset-0">
+                {rewardBurst.map((particle) => (
+                  <motion.span
+                    key={particle.id}
+                    className="absolute left-1/2 top-1/2 rounded-full bg-pink-300/70"
+                    style={{ width: particle.size, height: particle.size }}
+                    initial={{ x: 0, y: 0, opacity: 0.92, scale: 1 }}
+                    animate={{ x: particle.x, y: particle.y, opacity: 0, scale: 0.86 }}
+                    transition={{ duration: particle.duration, delay: particle.delay, ease: 'easeOut' }}
+                  />
+                ))}
+              </div>
+            )}
             <motion.div
               initial={{ scale: 0.9, opacity: 0, y: 24 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}

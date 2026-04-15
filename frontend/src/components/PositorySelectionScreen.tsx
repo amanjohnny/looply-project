@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowRight, Building2, GraduationCap, Sparkles } from 'lucide-react';
+import { bounceSpring, subtleShake, tabBounce } from '../lib/motion';
 
 type PositoryOption = {
   id: string;
@@ -25,6 +27,18 @@ const iconByKind = {
 } as const;
 
 export default function PositorySelectionScreen({ onContinueAkbnis }: { onContinueAkbnis: () => void }) {
+  const [shakeId, setShakeId] = useState<string | null>(null);
+
+  const handleOptionClick = (option: PositoryOption) => {
+    if (option.enabled) {
+      onContinueAkbnis();
+      return;
+    }
+
+    setShakeId(option.id);
+    window.setTimeout(() => setShakeId((prev) => (prev === option.id ? null : prev)), 320);
+  };
+
   return (
     <div className="relative min-h-screen overflow-hidden bg-[#fdfbff] px-4 py-10 sm:py-12">
       <div className="pointer-events-none absolute inset-0">
@@ -45,19 +59,22 @@ export default function PositorySelectionScreen({ onContinueAkbnis }: { onContin
         </div>
 
         <div className="mt-8 space-y-3">
-          {options.map((option, idx) => {
+          {options.map((option) => {
             const Icon = iconByKind[option.kind];
+            const shaking = shakeId === option.id;
 
             return (
               <motion.button
                 key={option.id}
                 type="button"
-                disabled={!option.enabled}
-                onClick={() => option.enabled && onContinueAkbnis()}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.08 * idx, duration: 0.35 }}
-                className={`w-full rounded-2xl border px-4 py-4 text-left transition-all ${option.enabled ? 'border-primary-300 bg-white shadow-[0_14px_35px_rgba(98,44,129,0.14)] hover:translate-y-[-1px]' : 'cursor-not-allowed border-white/70 bg-white/75 opacity-65'}`}
+                onClick={() => handleOptionClick(option)}
+                variants={subtleShake}
+                initial="idle"
+                animate={shaking ? 'shake' : 'idle'}
+                whileTap={option.enabled ? tabBounce.whileTap : undefined}
+                whileHover={option.enabled ? { y: -3, scale: 1.01 } : undefined}
+                transition={bounceSpring}
+                className={`w-full rounded-2xl border px-4 py-4 text-left transition-all ${option.enabled ? 'border-primary-300 bg-white shadow-[0_14px_35px_rgba(98,44,129,0.14)]' : 'border-white/70 bg-white/75 opacity-75'}`}
               >
                 <div className="flex items-start gap-3">
                   <div className={`mt-0.5 flex h-9 w-9 items-center justify-center rounded-xl ${option.enabled ? 'bg-primary-100 text-primary-600' : 'bg-gray-100 text-gray-500'}`}>

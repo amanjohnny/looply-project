@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Eye, EyeOff, ArrowRight, School, ShieldCheck } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
+import { bounceSpring, subtleShake, tabBounce } from '../lib/motion';
 
 type AuthTab = 'signin' | 'signup';
 type PasswordTarget = 'signin' | 'signup' | null;
@@ -114,6 +115,7 @@ export default function AkbnisAuthScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [passwordTarget, setPasswordTarget] = useState<PasswordTarget>(null);
   const [cursor, setCursor] = useState({ x: 0, y: 0 });
+  const [shakeState, setShakeState] = useState<'idle' | 'shake'>('idle');
 
   const [signInData, setSignInData] = useState({ emailOrPhone: '', password: '' });
   const [signUpData, setSignUpData] = useState({
@@ -142,8 +144,18 @@ export default function AkbnisAuthScreen() {
 
   const mode: EyeMode = passwordTarget ? (showPassword ? 'peek' : 'privacy') : 'normal';
 
+  const triggerShake = () => {
+    setShakeState('shake');
+    window.setTimeout(() => setShakeState('idle'), 320);
+  };
+
   const handleSignIn = (event: React.FormEvent) => {
     event.preventDefault();
+    if (!signInData.emailOrPhone.trim() || !signInData.password.trim()) {
+      triggerShake();
+      return;
+    }
+
     setIsLoading(true);
     setTimeout(() => {
       login();
@@ -153,6 +165,11 @@ export default function AkbnisAuthScreen() {
 
   const handleSignUpRequest = (event: React.FormEvent) => {
     event.preventDefault();
+    if (!signUpData.name.trim() || !signUpData.role.trim() || !signUpData.studentClass.trim() || !signUpData.contact.trim() || !signUpData.password.trim()) {
+      triggerShake();
+      return;
+    }
+
     setIsLoading(true);
     setTimeout(() => {
       setIsLoading(false);
@@ -190,7 +207,12 @@ export default function AkbnisAuthScreen() {
           </div>
         </section>
 
-        <section className="rounded-[24px] border border-white/70 bg-white/85 p-5 sm:p-6">
+        <motion.section
+          variants={subtleShake}
+          initial="idle"
+          animate={shakeState}
+          className="rounded-[24px] border border-white/70 bg-white/85 p-5 sm:p-6"
+        >
           <div className="mb-5 flex items-center justify-between gap-3">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary-500">Looply Access</p>
@@ -202,20 +224,22 @@ export default function AkbnisAuthScreen() {
           </div>
 
           <div className="mb-4 inline-flex w-full rounded-xl bg-primary-50 p-1">
-            <button
+            <motion.button
               type="button"
               onClick={() => setTab('signin')}
+              {...tabBounce}
               className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition ${tab === 'signin' ? 'bg-white text-primary-600 shadow-sm' : 'text-primary-500/80 hover:text-primary-600'}`}
             >
               Sign In
-            </button>
-            <button
+            </motion.button>
+            <motion.button
               type="button"
               onClick={() => setTab('signup')}
+              {...tabBounce}
               className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition ${tab === 'signup' ? 'bg-white text-primary-600 shadow-sm' : 'text-primary-500/80 hover:text-primary-600'}`}
             >
               Sign Up / Request
-            </button>
+            </motion.button>
           </div>
 
           {tab === 'signin' ? (
@@ -245,21 +269,24 @@ export default function AkbnisAuthScreen() {
                     className="input-field h-12 rounded-xl px-4 pr-11"
                     required
                   />
-                  <button
+                  <motion.button
                     type="button"
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => setShowPassword((prev) => !prev)}
+                    whileTap={{ scale: 0.9 }}
+                    transition={bounceSpring}
                     className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
                   >
                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                  </button>
+                  </motion.button>
                 </div>
               </div>
 
               <motion.button
                 type="submit"
-                whileTap={{ scale: 0.99 }}
-                whileHover={{ y: -1 }}
+                whileTap={{ scale: 0.95 }}
+                whileHover={{ y: -1.5 }}
+                transition={bounceSpring}
                 disabled={isLoading}
                 className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary-500 to-pink-500 py-3 text-sm font-semibold text-white shadow-[0_14px_30px_rgba(236,72,153,0.32)] disabled:opacity-70"
               >
@@ -331,14 +358,16 @@ export default function AkbnisAuthScreen() {
                     placeholder="Set a secure password"
                     required
                   />
-                  <button
+                  <motion.button
                     type="button"
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => setShowPassword((prev) => !prev)}
+                    whileTap={{ scale: 0.9 }}
+                    transition={bounceSpring}
                     className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
                   >
                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                  </button>
+                  </motion.button>
                 </div>
               </div>
 
@@ -346,8 +375,9 @@ export default function AkbnisAuthScreen() {
 
               <motion.button
                 type="submit"
-                whileTap={{ scale: 0.99 }}
-                whileHover={{ y: -1 }}
+                whileTap={{ scale: 0.95 }}
+                whileHover={{ y: -1.5 }}
+                transition={bounceSpring}
                 disabled={isLoading}
                 className="mt-1.5 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary-500 to-pink-500 py-3 text-sm font-semibold text-white shadow-[0_14px_30px_rgba(236,72,153,0.32)] disabled:opacity-70"
               >
@@ -356,7 +386,7 @@ export default function AkbnisAuthScreen() {
               </motion.button>
             </form>
           )}
-        </section>
+        </motion.section>
       </div>
     </div>
   );
