@@ -1,64 +1,169 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Eye, EyeOff, ArrowRight, School, ShieldCheck } from 'lucide-react';
 import { useAppStore } from '../store/useAppStore';
 
-function PrivacyEyes({ showPassword }: { showPassword: boolean }) {
+type AuthTab = 'signin' | 'signup';
+type PasswordTarget = 'signin' | 'signup' | null;
+type EyeMode = 'normal' | 'privacy' | 'peek';
+
+function clamp(value: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function MascotEyes({
+  mode,
+  cursor,
+}: {
+  mode: EyeMode;
+  cursor: { x: number; y: number };
+}) {
+  const leftPupil = useMemo(() => {
+    if (mode === 'privacy') return { x: -1, y: 1 };
+    if (mode === 'peek') return { x: 5.8, y: 2.2 };
+    return { x: cursor.x * 6, y: cursor.y * 5.5 };
+  }, [cursor.x, cursor.y, mode]);
+
+  const rightPupil = useMemo(() => {
+    if (mode === 'privacy') return { x: 1, y: 1 };
+    if (mode === 'peek') return { x: 0.5, y: 1.5 };
+    return { x: cursor.x * 6.5, y: cursor.y * 5.2 };
+  }, [cursor.x, cursor.y, mode]);
+
+  const leftEye = {
+    lidScale: mode === 'normal' ? 1 : mode === 'privacy' ? 0.14 : 0.5,
+    rotate: mode === 'privacy' ? -6 : -2,
+    y: mode === 'privacy' ? 1 : 0,
+    pupilScaleY: mode === 'privacy' ? 0.18 : 1,
+    pupilOpacity: mode === 'privacy' ? 0 : 1,
+  };
+
+  const rightEye = {
+    lidScale: mode === 'normal' ? 1 : mode === 'privacy' ? 0.14 : 0.12,
+    rotate: mode === 'privacy' ? 6 : 2,
+    y: mode === 'privacy' ? 1 : 0,
+    pupilScaleY: mode === 'normal' ? 1 : mode === 'privacy' ? 0.18 : 0.25,
+    pupilOpacity: mode === 'normal' ? 1 : mode === 'privacy' ? 0 : 0.2,
+  };
+
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-2.5">
       <motion.span
-        className="relative inline-flex h-8 w-11 items-center justify-center"
-        animate={showPassword ? { rotate: -2, y: 0 } : { rotate: -10, y: 1 }}
-        transition={{ duration: 0.3, ease: 'easeOut' }}
+        className="relative inline-flex h-10 w-7 items-center justify-center"
+        animate={{ rotate: leftEye.rotate, y: leftEye.y }}
+        transition={{ duration: 0.22, ease: 'easeOut' }}
       >
-        <span className="absolute inset-0 rounded-full border border-gray-200 bg-white shadow-[0_6px_16px_rgba(39,20,57,0.12)]" />
+        <span className="absolute inset-0 rounded-[999px] border border-gray-200/90 bg-gradient-to-b from-white via-[#fffaff] to-[#f4eeff] shadow-[0_8px_18px_rgba(39,20,57,0.12)]" />
         <motion.span
-          className="relative z-10 h-4 w-4 rounded-full bg-gray-900"
-          animate={showPassword ? { scaleY: 0.55, x: -1 } : { scaleY: 0.1, x: -3 }}
-          transition={{ duration: 0.3, ease: 'easeInOut' }}
+          className="absolute inset-0 rounded-[999px] bg-gradient-to-b from-white to-[#efe7ff]"
+          animate={{ scaleY: leftEye.lidScale }}
+          transition={{ duration: 0.24, ease: 'easeInOut' }}
         />
+        <motion.span
+          className="relative z-10 h-3.5 w-3.5 rounded-full bg-gray-900"
+          animate={{ x: leftPupil.x, y: leftPupil.y, scaleY: leftEye.pupilScaleY, opacity: leftEye.pupilOpacity }}
+          transition={{ type: 'spring', stiffness: 280, damping: 22, mass: 0.45 }}
+        >
+          <span className="absolute left-[24%] top-[19%] h-1 w-1 rounded-full bg-white/90" />
+        </motion.span>
       </motion.span>
 
       <motion.span
-        className="relative inline-flex h-8 w-11 items-center justify-center"
-        animate={showPassword ? { rotate: 2, y: 0 } : { rotate: 10, y: 1 }}
-        transition={{ duration: 0.3, ease: 'easeOut' }}
+        className="relative inline-flex h-10 w-7 items-center justify-center"
+        animate={{ rotate: rightEye.rotate, y: rightEye.y }}
+        transition={{ duration: 0.22, ease: 'easeOut' }}
       >
-        <span className="absolute inset-0 rounded-full border border-gray-200 bg-white shadow-[0_6px_16px_rgba(39,20,57,0.12)]" />
+        <span className="absolute inset-0 rounded-[999px] border border-gray-200/90 bg-gradient-to-b from-white via-[#fffaff] to-[#f4eeff] shadow-[0_8px_18px_rgba(39,20,57,0.12)]" />
         <motion.span
-          className="relative z-10 h-4 w-4 rounded-full bg-gray-900"
-          animate={showPassword ? { scaleY: 0.18, x: 3 } : { scaleY: 0.06, x: 3 }}
-          transition={{ duration: 0.3, ease: 'easeInOut' }}
+          className="absolute inset-0 rounded-[999px] bg-gradient-to-b from-white to-[#efe7ff]"
+          animate={{ scaleY: rightEye.lidScale }}
+          transition={{ duration: 0.24, ease: 'easeInOut' }}
         />
+        <motion.span
+          className="relative z-10 h-3.5 w-3.5 rounded-full bg-gray-900"
+          animate={{ x: rightPupil.x, y: rightPupil.y, scaleY: rightEye.pupilScaleY, opacity: rightEye.pupilOpacity }}
+          transition={{ type: 'spring', stiffness: 280, damping: 22, mass: 0.45 }}
+        >
+          <span className="absolute left-[24%] top-[19%] h-1 w-1 rounded-full bg-white/90" />
+        </motion.span>
       </motion.span>
     </div>
   );
 }
 
-function LooplyWordmark({ showPassword }: { showPassword: boolean }) {
+function LooplyWordmark({
+  mode,
+  cursor,
+}: {
+  mode: EyeMode;
+  cursor: { x: number; y: number };
+}) {
   return (
-    <div className="flex items-center gap-1 text-[1.75rem] font-black tracking-[-0.045em] text-gray-900">
-      <span>L</span>
-      <PrivacyEyes showPassword={showPassword} />
-      <span>ply</span>
+    <div className="flex items-center gap-[0.12em] text-[1.82rem] font-black leading-none tracking-[-0.012em] text-gray-900">
+      <span className="mr-[0.01em]">L</span>
+      <MascotEyes mode={mode} cursor={cursor} />
+      <span className="ml-[0.01em]">ply</span>
     </div>
   );
 }
 
 export default function AkbnisAuthScreen() {
   const { login } = useAppStore();
+  const [tab, setTab] = useState<AuthTab>('signin');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [formData, setFormData] = useState({ email: '', password: '' });
+  const [passwordTarget, setPasswordTarget] = useState<PasswordTarget>(null);
+  const [cursor, setCursor] = useState({ x: 0, y: 0 });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const [signInData, setSignInData] = useState({ emailOrPhone: '', password: '' });
+  const [signUpData, setSignUpData] = useState({
+    name: '',
+    role: '',
+    studentClass: '',
+    contact: '',
+    password: '',
+  });
+
+  useEffect(() => {
+    const onMouseMove = (event: MouseEvent) => {
+      const normalizedX = (event.clientX / window.innerWidth) * 2 - 1;
+      const normalizedY = (event.clientY / window.innerHeight) * 2 - 1;
+      setCursor({ x: clamp(normalizedX, -1, 1), y: clamp(normalizedY, -1, 1) });
+    };
+
+    window.addEventListener('mousemove', onMouseMove);
+    return () => window.removeEventListener('mousemove', onMouseMove);
+  }, []);
+
+  useEffect(() => {
+    setShowPassword(false);
+    setPasswordTarget(null);
+  }, [tab]);
+
+  const mode: EyeMode = passwordTarget ? (showPassword ? 'peek' : 'privacy') : 'normal';
+
+  const handleSignIn = (event: React.FormEvent) => {
+    event.preventDefault();
     setIsLoading(true);
     setTimeout(() => {
       login();
       setIsLoading(false);
     }, 850);
   };
+
+  const handleSignUpRequest = (event: React.FormEvent) => {
+    event.preventDefault();
+    setIsLoading(true);
+    setTimeout(() => {
+      setIsLoading(false);
+      setTab('signin');
+      setSignInData((prev) => ({ ...prev, emailOrPhone: signUpData.contact }));
+    }, 900);
+  };
+
+  const primaryButtonLabel = tab === 'signin'
+    ? (isLoading ? 'Signing in...' : 'Continue to Looply')
+    : (isLoading ? 'Submitting request...' : 'Request Pository Access');
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-[#fdfbff] px-4 py-8 sm:py-12">
@@ -89,56 +194,168 @@ export default function AkbnisAuthScreen() {
           <div className="mb-5 flex items-center justify-between gap-3">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary-500">Looply Access</p>
-              <h2 className="mt-1 text-2xl font-bold tracking-tight text-gray-900">Sign in</h2>
+              <h2 className="mt-1 text-2xl font-bold tracking-tight text-gray-900">
+                {tab === 'signin' ? 'Sign in' : 'Registration request'}
+              </h2>
             </div>
-            <LooplyWordmark showPassword={showPassword} />
+            <LooplyWordmark mode={mode} cursor={cursor} />
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="mb-2 block text-sm font-medium text-gray-700">Email or Phone</label>
-              <input
-                type="text"
-                value={formData.email}
-                onChange={(e) => setFormData((prev) => ({ ...prev, email: e.target.value }))}
-                placeholder="Enter your school email or phone"
-                className="input-field h-12 rounded-xl px-4"
-                required
-              />
-            </div>
+          <div className="mb-4 inline-flex w-full rounded-xl bg-primary-50 p-1">
+            <button
+              type="button"
+              onClick={() => setTab('signin')}
+              className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition ${tab === 'signin' ? 'bg-white text-primary-600 shadow-sm' : 'text-primary-500/80 hover:text-primary-600'}`}
+            >
+              Sign In
+            </button>
+            <button
+              type="button"
+              onClick={() => setTab('signup')}
+              className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition ${tab === 'signup' ? 'bg-white text-primary-600 shadow-sm' : 'text-primary-500/80 hover:text-primary-600'}`}
+            >
+              Sign Up / Request
+            </button>
+          </div>
 
-            <div>
-              <label className="mb-2 block text-sm font-medium text-gray-700">Password</label>
-              <div className="relative">
+          {tab === 'signin' ? (
+            <form onSubmit={handleSignIn} className="space-y-4">
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-700">Email or Phone</label>
                 <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={formData.password}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, password: e.target.value }))}
-                  placeholder="Enter your password"
-                  className="input-field h-12 rounded-xl px-4 pr-11"
+                  type="text"
+                  value={signInData.emailOrPhone}
+                  onChange={(e) => setSignInData((prev) => ({ ...prev, emailOrPhone: e.target.value }))}
+                  placeholder="Enter your school email or phone"
+                  className="input-field h-12 rounded-xl px-4"
                   required
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((prev) => !prev)}
-                  className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
-                >
-                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
               </div>
-            </div>
 
-            <motion.button
-              type="submit"
-              whileTap={{ scale: 0.99 }}
-              whileHover={{ y: -1 }}
-              disabled={isLoading}
-              className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary-500 to-pink-500 py-3 text-sm font-semibold text-white shadow-[0_14px_30px_rgba(236,72,153,0.32)] disabled:opacity-70"
-            >
-              {isLoading ? 'Signing in...' : 'Continue to Looply'}
-              {!isLoading && <ArrowRight size={18} />}
-            </motion.button>
-          </form>
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-700">Password</label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={signInData.password}
+                    onChange={(e) => setSignInData((prev) => ({ ...prev, password: e.target.value }))}
+                    onFocus={() => setPasswordTarget('signin')}
+                    onBlur={() => setPasswordTarget(null)}
+                    placeholder="Enter your password"
+                    className="input-field h-12 rounded-xl px-4 pr-11"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                  >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+              </div>
+
+              <motion.button
+                type="submit"
+                whileTap={{ scale: 0.99 }}
+                whileHover={{ y: -1 }}
+                disabled={isLoading}
+                className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary-500 to-pink-500 py-3 text-sm font-semibold text-white shadow-[0_14px_30px_rgba(236,72,153,0.32)] disabled:opacity-70"
+              >
+                {primaryButtonLabel}
+                {!isLoading && <ArrowRight size={18} />}
+              </motion.button>
+            </form>
+          ) : (
+            <form onSubmit={handleSignUpRequest} className="space-y-3.5">
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-gray-700">Name</label>
+                <input
+                  type="text"
+                  value={signUpData.name}
+                  onChange={(e) => setSignUpData((prev) => ({ ...prev, name: e.target.value }))}
+                  className="input-field h-11 rounded-xl px-4"
+                  placeholder="Your full name"
+                  required
+                />
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-gray-700">Role</label>
+                  <input
+                    type="text"
+                    value={signUpData.role}
+                    onChange={(e) => setSignUpData((prev) => ({ ...prev, role: e.target.value }))}
+                    className="input-field h-11 rounded-xl px-4"
+                    placeholder="Student / Teacher"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-gray-700">Class</label>
+                  <input
+                    type="text"
+                    value={signUpData.studentClass}
+                    onChange={(e) => setSignUpData((prev) => ({ ...prev, studentClass: e.target.value }))}
+                    className="input-field h-11 rounded-xl px-4"
+                    placeholder="e.g. XI Science 2"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-gray-700">Email or Phone</label>
+                <input
+                  type="text"
+                  value={signUpData.contact}
+                  onChange={(e) => setSignUpData((prev) => ({ ...prev, contact: e.target.value }))}
+                  className="input-field h-11 rounded-xl px-4"
+                  placeholder="School email or verified phone"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-gray-700">Create password</label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={signUpData.password}
+                    onChange={(e) => setSignUpData((prev) => ({ ...prev, password: e.target.value }))}
+                    onFocus={() => setPasswordTarget('signup')}
+                    onBlur={() => setPasswordTarget(null)}
+                    className="input-field h-11 rounded-xl px-4 pr-11"
+                    placeholder="Set a secure password"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                  >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+              </div>
+
+              <p className="text-xs text-gray-500">This sends a frontend-only registration request preview for AKBNISPOSITORY access.</p>
+
+              <motion.button
+                type="submit"
+                whileTap={{ scale: 0.99 }}
+                whileHover={{ y: -1 }}
+                disabled={isLoading}
+                className="mt-1.5 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary-500 to-pink-500 py-3 text-sm font-semibold text-white shadow-[0_14px_30px_rgba(236,72,153,0.32)] disabled:opacity-70"
+              >
+                {primaryButtonLabel}
+                {!isLoading && <ArrowRight size={18} />}
+              </motion.button>
+            </form>
+          )}
         </section>
       </div>
     </div>
