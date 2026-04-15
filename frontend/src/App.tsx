@@ -18,9 +18,10 @@ import SplashScreen from './components/SplashScreen';
 import PositorySelectionScreen from './components/PositorySelectionScreen';
 import AkbnisAuthScreen from './components/AkbnisAuthScreen';
 
-import { Home, User, MessageCircle, PlusSquare, Trophy } from 'lucide-react';
+import { Home, User, MessageCircle, PlusSquare, Trophy, Sparkles } from 'lucide-react';
 
-type EntryStage = 'splash' | 'pository' | 'akbnisAuth';
+type EntryStage = 'splash' | 'transition' | 'pository' | 'akbnisAuth';
+type TargetEntryStage = Exclude<EntryStage, 'transition'>;
 
 const navItems = [
   { id: 'feed', icon: Home, label: 'Feed' },
@@ -36,6 +37,45 @@ const pageVariants = {
   exit: { opacity: 0, x: -20 },
 };
 
+const entryVariants = {
+  initial: { opacity: 0, y: 18, scale: 0.99, filter: 'blur(8px)' },
+  animate: { opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' },
+  exit: { opacity: 0, y: -14, scale: 1.01, filter: 'blur(8px)' },
+};
+
+function EntryTransitionCard({ label }: { label: string }) {
+  return (
+    <motion.div
+      className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#fdfbff] px-6"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.24, ease: 'easeOut' }}
+    >
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute left-1/2 top-1/2 h-[22rem] w-[22rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-gradient-to-b from-primary-100/70 via-pink-100/35 to-transparent blur-3xl" />
+      </div>
+      <motion.div
+        className="relative z-10 flex flex-col items-center gap-3 rounded-3xl border border-white/75 bg-white/65 px-8 py-7 backdrop-blur-xl"
+        initial={{ y: 16, opacity: 0, scale: 0.94 }}
+        animate={{ y: 0, opacity: 1, scale: 1 }}
+        exit={{ y: -12, opacity: 0, scale: 0.98 }}
+        transition={{ type: 'spring', stiffness: 260, damping: 22 }}
+      >
+        <motion.div
+          animate={{ rotate: [0, 8, -8, 0], scale: [1, 1.06, 0.98, 1] }}
+          transition={{ duration: 1.1, repeat: Infinity, ease: 'easeInOut' }}
+          className="rounded-2xl bg-gradient-to-br from-primary-500 to-pink-500 p-3 text-white shadow-[0_16px_36px_rgba(236,72,153,0.3)]"
+        >
+          <Sparkles size={20} />
+        </motion.div>
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary-500">Looply</p>
+        <p className="text-sm font-medium text-gray-600">{label}</p>
+      </motion.div>
+    </motion.div>
+  );
+}
+
 function App() {
   const {
     currentPage,
@@ -48,52 +88,8 @@ function App() {
     closeDirectThread,
     closeGroupChat,
   } = useAppStore();
-  const [minSplashElapsed, setMinSplashElapsed] = useState(false);
-  const [appReady, setAppReady] = useState(false);
-  const [selectedPository, setSelectedPository] = useState<string | null>(() => localStorage.getItem('looply.selectedPository'));
-
-  useEffect(() => {
-    const splashTimer = window.setTimeout(() => {
-      setMinSplashElapsed(true);
-    }, 5000);
-
-    return () => window.clearTimeout(splashTimer);
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const waitForWindowLoad = document.readyState === 'complete'
-      ? Promise.resolve()
-      : new Promise<void>((resolve) => {
-        window.addEventListener('load', () => resolve(), { once: true });
-      });
-
-    const waitForPaint = new Promise<void>((resolve) => {
-      requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
-    });
-
-    const waitForFonts = 'fonts' in document ? document.fonts.ready : Promise.resolve();
-
-    Promise.all([waitForWindowLoad, waitForPaint, waitForFonts]).then(() => {
-      if (!cancelled) {
-        setAppReady(true);
-      }
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const showSplash = !(minSplashElapsed && appReady);
-
-  const handlePositoryContinue = (positoryId: string) => {
-    localStorage.setItem('looply.selectedPository', positoryId);
-    setSelectedPository(positoryId);
-  };
-
   const [entryStage, setEntryStage] = useState<EntryStage>('splash');
+  const [nextStage, setNextStage] = useState<TargetEntryStage | null>(null);
   const [minSplashElapsed, setMinSplashElapsed] = useState(false);
   const [appReady, setAppReady] = useState(false);
 
@@ -132,9 +128,21 @@ function App() {
   useEffect(() => {
     if (entryStage !== 'splash') return;
     if (minSplashElapsed && appReady) {
-      setEntryStage('pository');
+      setNextStage('pository');
+      setEntryStage('transition');
     }
   }, [appReady, entryStage, minSplashElapsed]);
+
+  useEffect(() => {
+    if (entryStage !== 'transition' || !nextStage) return;
+
+    const transitionTimer = window.setTimeout(() => {
+      setEntryStage(nextStage);
+      setNextStage(null);
+    }, 380);
+
+    return () => window.clearTimeout(transitionTimer);
+  }, [entryStage, nextStage]);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -182,12 +190,34 @@ function App() {
   }, [closeDirectThread, closeGroupChat, closeStoryViewer, setCurrentPage]);
 
   if (!isAuthenticated) {
-    if (entryStage === 'splash') return <SplashScreen />;
-    if (entryStage === 'pository') {
-      return <PositorySelectionScreen onContinueAkbnis={() => setEntryStage('akbnisAuth')} />;
-    }
-    if (entryStage === 'akbnisAuth') return <AkbnisAuthScreen />;
-    return <Auth />;
+    return (
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={`${entryStage}-${nextStage ?? 'none'}`}
+          variants={entryVariants}
+          initial="initial"
+          animate="animate"
+          exit="exit"
+          transition={{ type: 'spring', stiffness: 210, damping: 24, mass: 0.9 }}
+          className="min-h-screen"
+        >
+          {entryStage === 'splash' && <SplashScreen />}
+          {entryStage === 'transition' && (
+            <EntryTransitionCard label={nextStage === 'akbnisAuth' ? 'Preparing AKBNISPOSITORY access...' : 'Loading available Positories...'} />
+          )}
+          {entryStage === 'pository' && (
+            <PositorySelectionScreen
+              onContinueAkbnis={() => {
+                setNextStage('akbnisAuth');
+                setEntryStage('transition');
+              }}
+            />
+          )}
+          {entryStage === 'akbnisAuth' && <AkbnisAuthScreen />}
+          {!['splash', 'transition', 'pository', 'akbnisAuth'].includes(entryStage) && <Auth />}
+        </motion.div>
+      </AnimatePresence>
+    );
   }
 
   const renderPage = () => {
