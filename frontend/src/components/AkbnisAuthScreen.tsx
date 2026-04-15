@@ -14,11 +14,9 @@ function clamp(value: number, min: number, max: number) {
 function MascotEyes({
   mode,
   cursor,
-  showPassword,
 }: {
   mode: EyeMode;
   cursor: { x: number; y: number };
-  showPassword: boolean;
 }) {
   const leftPupil = useMemo(() => {
     if (mode === 'privacy') return { x: -1, y: 1 };
@@ -28,29 +26,42 @@ function MascotEyes({
 
   const rightPupil = useMemo(() => {
     if (mode === 'privacy') return { x: 1, y: 1 };
-    if (mode === 'peek') return { x: 2.2, y: 2.8 };
+    if (mode === 'peek') return { x: 0.5, y: 1.5 };
     return { x: cursor.x * 6.5, y: cursor.y * 5.2 };
   }, [cursor.x, cursor.y, mode]);
 
-  const leftLidScale = mode === 'privacy' ? 0.14 : mode === 'peek' ? 0.52 : 1;
-  const rightLidScale = mode === 'privacy' ? 0.14 : mode === 'peek' ? 0.2 : 1;
+  const leftEye = {
+    lidScale: mode === 'normal' ? 1 : mode === 'privacy' ? 0.14 : 0.5,
+    rotate: mode === 'privacy' ? -6 : -2,
+    y: mode === 'privacy' ? 1 : 0,
+    pupilScaleY: mode === 'privacy' ? 0.18 : 1,
+    pupilOpacity: mode === 'privacy' ? 0 : 1,
+  };
+
+  const rightEye = {
+    lidScale: mode === 'normal' ? 1 : mode === 'privacy' ? 0.14 : 0.12,
+    rotate: mode === 'privacy' ? 6 : 2,
+    y: mode === 'privacy' ? 1 : 0,
+    pupilScaleY: mode === 'normal' ? 1 : mode === 'privacy' ? 0.18 : 0.25,
+    pupilOpacity: mode === 'normal' ? 1 : mode === 'privacy' ? 0 : 0.2,
+  };
 
   return (
     <div className="flex items-center gap-2.5">
       <motion.span
         className="relative inline-flex h-10 w-7 items-center justify-center"
-        animate={mode === 'privacy' ? { rotate: -6, y: 1 } : { rotate: -2, y: 0 }}
+        animate={{ rotate: leftEye.rotate, y: leftEye.y }}
         transition={{ duration: 0.22, ease: 'easeOut' }}
       >
         <span className="absolute inset-0 rounded-[999px] border border-gray-200/90 bg-gradient-to-b from-white via-[#fffaff] to-[#f4eeff] shadow-[0_8px_18px_rgba(39,20,57,0.12)]" />
         <motion.span
           className="absolute inset-0 rounded-[999px] bg-gradient-to-b from-white to-[#efe7ff]"
-          animate={{ scaleY: leftLidScale }}
+          animate={{ scaleY: leftEye.lidScale }}
           transition={{ duration: 0.24, ease: 'easeInOut' }}
         />
         <motion.span
           className="relative z-10 h-3.5 w-3.5 rounded-full bg-gray-900"
-          animate={{ x: leftPupil.x, y: leftPupil.y, scaleY: mode === 'privacy' ? 0.2 : 1 }}
+          animate={{ x: leftPupil.x, y: leftPupil.y, scaleY: leftEye.pupilScaleY, opacity: leftEye.pupilOpacity }}
           transition={{ type: 'spring', stiffness: 280, damping: 22, mass: 0.45 }}
         >
           <span className="absolute left-[24%] top-[19%] h-1 w-1 rounded-full bg-white/90" />
@@ -59,18 +70,18 @@ function MascotEyes({
 
       <motion.span
         className="relative inline-flex h-10 w-7 items-center justify-center"
-        animate={mode === 'privacy' ? { rotate: 6, y: 1 } : { rotate: 2, y: 0 }}
+        animate={{ rotate: rightEye.rotate, y: rightEye.y }}
         transition={{ duration: 0.22, ease: 'easeOut' }}
       >
         <span className="absolute inset-0 rounded-[999px] border border-gray-200/90 bg-gradient-to-b from-white via-[#fffaff] to-[#f4eeff] shadow-[0_8px_18px_rgba(39,20,57,0.12)]" />
         <motion.span
           className="absolute inset-0 rounded-[999px] bg-gradient-to-b from-white to-[#efe7ff]"
-          animate={{ scaleY: rightLidScale }}
+          animate={{ scaleY: rightEye.lidScale }}
           transition={{ duration: 0.24, ease: 'easeInOut' }}
         />
         <motion.span
           className="relative z-10 h-3.5 w-3.5 rounded-full bg-gray-900"
-          animate={{ x: rightPupil.x, y: rightPupil.y, scaleY: mode === 'privacy' ? 0.2 : showPassword ? 0.9 : 1 }}
+          animate={{ x: rightPupil.x, y: rightPupil.y, scaleY: rightEye.pupilScaleY, opacity: rightEye.pupilOpacity }}
           transition={{ type: 'spring', stiffness: 280, damping: 22, mass: 0.45 }}
         >
           <span className="absolute left-[24%] top-[19%] h-1 w-1 rounded-full bg-white/90" />
@@ -83,16 +94,14 @@ function MascotEyes({
 function LooplyWordmark({
   mode,
   cursor,
-  showPassword,
 }: {
   mode: EyeMode;
   cursor: { x: number; y: number };
-  showPassword: boolean;
 }) {
   return (
     <div className="flex items-center gap-[0.12em] text-[1.82rem] font-black leading-none tracking-[-0.012em] text-gray-900">
       <span className="mr-[0.01em]">L</span>
-      <MascotEyes mode={mode} cursor={cursor} showPassword={showPassword} />
+      <MascotEyes mode={mode} cursor={cursor} />
       <span className="ml-[0.01em]">ply</span>
     </div>
   );
@@ -189,7 +198,7 @@ export default function AkbnisAuthScreen() {
                 {tab === 'signin' ? 'Sign in' : 'Registration request'}
               </h2>
             </div>
-            <LooplyWordmark mode={mode} cursor={cursor} showPassword={showPassword} />
+            <LooplyWordmark mode={mode} cursor={cursor} />
           </div>
 
           <div className="mb-4 inline-flex w-full rounded-xl bg-primary-50 p-1">
@@ -238,6 +247,7 @@ export default function AkbnisAuthScreen() {
                   />
                   <button
                     type="button"
+                    onMouseDown={(e) => e.preventDefault()}
                     onClick={() => setShowPassword((prev) => !prev)}
                     className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
                   >
@@ -323,6 +333,7 @@ export default function AkbnisAuthScreen() {
                   />
                   <button
                     type="button"
+                    onMouseDown={(e) => e.preventDefault()}
                     onClick={() => setShowPassword((prev) => !prev)}
                     className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
                   >
