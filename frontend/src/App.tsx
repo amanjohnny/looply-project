@@ -1,24 +1,23 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { useAppStore } from './store/useAppStore';
 import { AnimatePresence, motion } from 'framer-motion';
-
-import Auth from './pages/Auth';
-import Feed from './pages/Feed';
-import Profile from './pages/Profile';
-import Groups from './pages/Groups';
-import UserProfile from './pages/UserProfile';
-import EditProfile from './pages/EditProfile';
-import Settings from './pages/Settings';
-import Comments from './pages/Comments';
-import StoryViewer from './pages/StoryViewer';
-import Create from './pages/Create';
-import Missions from './pages/Missions';
-import ChallengeMaker from './pages/ChallengeMaker';
-import SplashScreen from './components/SplashScreen';
-import PositorySelectionScreen from './components/PositorySelectionScreen';
-import AkbnisAuthScreen from './components/AkbnisAuthScreen';
-
 import { Home, User, MessageCircle, PlusSquare, Trophy, Sparkles } from 'lucide-react';
+
+const Auth = lazy(() => import('./pages/Auth'));
+const Feed = lazy(() => import('./pages/Feed'));
+const Profile = lazy(() => import('./pages/Profile'));
+const Groups = lazy(() => import('./pages/Groups'));
+const UserProfile = lazy(() => import('./pages/UserProfile'));
+const EditProfile = lazy(() => import('./pages/EditProfile'));
+const Settings = lazy(() => import('./pages/Settings'));
+const Comments = lazy(() => import('./pages/Comments'));
+const StoryViewer = lazy(() => import('./pages/StoryViewer'));
+const Create = lazy(() => import('./pages/Create'));
+const Missions = lazy(() => import('./pages/Missions'));
+const ChallengeMaker = lazy(() => import('./pages/ChallengeMaker'));
+const SplashScreen = lazy(() => import('./components/SplashScreen'));
+const PositorySelectionScreen = lazy(() => import('./components/PositorySelectionScreen'));
+const AkbnisAuthScreen = lazy(() => import('./components/AkbnisAuthScreen'));
 
 type EntryStage = 'splash' | 'transition' | 'pository' | 'akbnisAuth';
 type TargetEntryStage = Exclude<EntryStage, 'transition'>;
@@ -42,6 +41,16 @@ const entryVariants = {
   animate: { opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' },
   exit: { opacity: 0, y: -14, scale: 1.01, filter: 'blur(8px)' },
 };
+
+function AppLoadingFallback() {
+  return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-6">
+      <div className="rounded-2xl border border-gray-100 bg-white/90 px-5 py-4 text-sm font-medium text-gray-500 shadow-sm">
+        Optimizing experience...
+      </div>
+    </div>
+  );
+}
 
 function EntryTransitionCard({ label }: { label: string }) {
   return (
@@ -201,20 +210,22 @@ function App() {
           transition={{ type: 'spring', stiffness: 210, damping: 24, mass: 0.9 }}
           className="min-h-screen"
         >
-          {entryStage === 'splash' && <SplashScreen />}
-          {entryStage === 'transition' && (
-            <EntryTransitionCard label={nextStage === 'akbnisAuth' ? 'Preparing AKBNISPOSITORY access...' : 'Loading available Positories...'} />
-          )}
-          {entryStage === 'pository' && (
-            <PositorySelectionScreen
-              onContinueAkbnis={() => {
-                setNextStage('akbnisAuth');
-                setEntryStage('transition');
-              }}
-            />
-          )}
-          {entryStage === 'akbnisAuth' && <AkbnisAuthScreen />}
-          {!['splash', 'transition', 'pository', 'akbnisAuth'].includes(entryStage) && <Auth />}
+          <Suspense fallback={<AppLoadingFallback />}>
+            {entryStage === 'splash' && <SplashScreen />}
+            {entryStage === 'transition' && (
+              <EntryTransitionCard label={nextStage === 'akbnisAuth' ? 'Preparing AKBNISPOSITORY access...' : 'Loading available Positories...'} />
+            )}
+            {entryStage === 'pository' && (
+              <PositorySelectionScreen
+                onContinueAkbnis={() => {
+                  setNextStage('akbnisAuth');
+                  setEntryStage('transition');
+                }}
+              />
+            )}
+            {entryStage === 'akbnisAuth' && <AkbnisAuthScreen />}
+            {!['splash', 'transition', 'pository', 'akbnisAuth'].includes(entryStage) && <Auth />}
+          </Suspense>
         </motion.div>
       </AnimatePresence>
     );
@@ -247,9 +258,12 @@ function App() {
     }
   };
 
-  const hideBottomNav = ['editProfile', 'userProfile', 'settings', 'comments', 'challengeMaker'].includes(currentPage)
-    || storyViewerOpen
-    || (currentPage === 'groups' && (Boolean(activeDirectThreadId) || Boolean(activeGroupChatId)));
+  const hideBottomNav = useMemo(
+    () => ['editProfile', 'userProfile', 'settings', 'comments', 'challengeMaker'].includes(currentPage)
+      || storyViewerOpen
+      || (currentPage === 'groups' && (Boolean(activeDirectThreadId) || Boolean(activeGroupChatId))),
+    [activeDirectThreadId, activeGroupChatId, currentPage, storyViewerOpen],
+  );
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -263,13 +277,17 @@ function App() {
           transition={{ duration: 0.2, ease: 'easeInOut' }}
           className="min-h-screen"
         >
-          {renderPage()}
+          <Suspense fallback={<AppLoadingFallback />}>
+            {renderPage()}
+          </Suspense>
         </motion.div>
       </AnimatePresence>
 
       {storyViewerOpen && (
         <div className="fixed inset-0 z-[70]">
-          <StoryViewer />
+          <Suspense fallback={<AppLoadingFallback />}>
+            <StoryViewer />
+          </Suspense>
         </div>
       )}
 
