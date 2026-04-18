@@ -306,6 +306,10 @@ body {
   display: none;
 }
 
+.break-anywhere {
+  overflow-wrap: anywhere;
+}
+
 /* Smooth anchor link behavior */
 a {
   transition: color 0.2s ease;

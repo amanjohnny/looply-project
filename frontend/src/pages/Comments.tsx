@@ -116,7 +116,7 @@ export default function Comments() {
             <span className="text-2xl leading-none">{post.userAvatar}</span>
             <p className="font-semibold text-sm text-gray-900 break-words">{post.username}</p>
           </div>
-          <p className="text-sm text-gray-700 leading-relaxed break-words [overflow-wrap:anywhere]">{post.content}</p>
+          <p className="text-sm text-gray-700 leading-relaxed break-anywhere">{post.content}</p>
           <div className="mt-3 flex items-center gap-3 text-sm text-gray-500">
             <button onClick={() => togglePostLike(post.id)} className="flex items-center gap-1 hover:text-red-500">
               <Heart size={16} className={isLiked ? 'text-red-500 fill-red-500' : ''} /> {post.likes}
@@ -143,7 +143,7 @@ export default function Comments() {
                       <p className="text-xs font-semibold text-gray-900 break-words">{comment.username}</p>
                       {isPostAuthor && <span className="rounded-full bg-primary-100 px-2 py-0.5 text-[10px] font-semibold text-primary-600">Author</span>}
                     </div>
-                    <p className="text-sm text-gray-700 leading-relaxed break-words [overflow-wrap:anywhere]">{comment.content}</p>
+                    <p className="text-sm text-gray-700 leading-relaxed break-anywhere">{comment.content}</p>
                   </div>
                   <button
                     onClick={() => setActiveMenuCommentId(menuOpen ? null : comment.id)}

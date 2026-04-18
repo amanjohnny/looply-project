@@ -51,8 +51,8 @@ export default function Profile() {
             </div>
 
             <div className="flex-1">
-              <h2 className="text-2xl font-bold text-gray-900 break-words [overflow-wrap:anywhere]">{user.displayName}</h2>
-              <p className="text-sm text-gray-500 mt-1 break-words [overflow-wrap:anywhere]">{user.bio}</p>
+              <h2 className="text-2xl font-bold text-gray-900 break-anywhere">{user.displayName}</h2>
+              <p className="text-sm text-gray-500 mt-1 break-anywhere">{user.bio}</p>
               <div className="flex items-center gap-3 mt-2">
                 <span className="px-3 py-1 rounded-full bg-primary-100 text-primary-600 text-sm font-medium">Level {user.level}</span>
                 <div className="flex items-center gap-1 text-yellow-500"><Star size={14} /><span className="text-sm font-medium">{user.xp} XP</span></div>
@@ -100,7 +100,7 @@ export default function Profile() {
                     {myPosts.map((post) => (
                       <div key={post.id} className="rounded-2xl border border-gray-100 p-3">
                         <p className="text-xs text-primary-600 font-medium mb-1">{post.challengeTitle}</p>
-                        <p className="text-sm text-gray-700 break-words [overflow-wrap:anywhere]">{post.content}</p>
+                        <p className="text-sm text-gray-700 break-anywhere">{post.content}</p>
                       </div>
                     ))}
                   </div>
