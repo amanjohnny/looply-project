@@ -238,7 +238,7 @@ export default function Feed() {
                     <Award className="text-primary-500 shrink-0" size={14} />
                     <span className="text-xs font-medium text-primary-600 break-words">{post.challengeTitle}</span>
                   </div>
-                  <p className="text-gray-800 text-sm leading-relaxed mb-3 break-words [overflow-wrap:anywhere]">{post.content}</p>
+                  <p className="text-gray-800 text-sm leading-relaxed mb-3 break-anywhere">{post.content}</p>
                 </div>
 
                 {post.image && <div className="px-4 mb-3"><div className="w-full aspect-square bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl flex items-center justify-center text-7xl">{post.image}</div></div>}

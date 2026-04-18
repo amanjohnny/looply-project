@@ -25,7 +25,7 @@ export default function StoryViewer() {
             <div className="text-8xl text-center mt-8">{story.media || '✨'}</div>
           </div>
 
-          <p className="text-sm leading-relaxed break-words [overflow-wrap:anywhere]">{story.caption}</p>
+          <p className="text-sm leading-relaxed break-anywhere">{story.caption}</p>
         </div>
 
         <div className="mt-4 flex items-center justify-between">

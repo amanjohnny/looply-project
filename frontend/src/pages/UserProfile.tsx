@@ -59,7 +59,7 @@ export default function UserProfile() {
             <div>
               <h2 className="text-xl font-bold text-gray-900">{selectedUser.displayName}</h2>
               <p className="text-sm text-gray-400">@{selectedUser.username}</p>
-              <p className="text-sm text-gray-500 mt-1 break-words [overflow-wrap:anywhere]">{selectedUser.bio}</p>
+              <p className="text-sm text-gray-500 mt-1 break-anywhere">{selectedUser.bio}</p>
             </div>
           </div>
 
@@ -137,7 +137,7 @@ export default function UserProfile() {
               {profilePosts.map((post) => (
                 <div key={post.id} className="rounded-2xl border border-gray-100 p-3">
                   <p className="text-xs text-primary-600 font-medium mb-1">{post.challengeTitle}</p>
-                  <p className="text-sm text-gray-700 break-words [overflow-wrap:anywhere]">{post.content}</p>
+                  <p className="text-sm text-gray-700 break-anywhere">{post.content}</p>
                 </div>
               ))}
             </div>
