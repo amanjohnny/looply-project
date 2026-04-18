@@ -144,6 +144,12 @@ const mockCollectibles: Collectible[] = [
   { id: '8', name: 'Star Unicorn', description: 'Legendary star unicorn', rarity: 'legendary', image: '🦄' },
 ];
 
+const collectiblesByRarity: Record<Rarity, Collectible[]> = mockCollectibles.reduce((acc, item) => {
+  if (!acc[item.rarity]) acc[item.rarity] = [];
+  acc[item.rarity].push(item);
+  return acc;
+}, {} as Record<Rarity, Collectible[]>);
+
 const mockChallenges: Challenge[] = [
   { id: '1', title: 'Morning Study Session', description: 'Study for 30 minutes', coins: 50, category: 'Study', difficulty: 'easy', completed: false, proofRequired: false },
   { id: '2', title: 'Complete Math Homework', description: 'Finish all math assignments', coins: 100, category: 'Homework', difficulty: 'medium', completed: false, proofRequired: true },
@@ -558,8 +564,8 @@ export const useAppStore = create<AppState>((set, get) => ({
 
       if (rewardType === 'collectible') {
         const rarity = pickRarity();
-        const pool = mockCollectibles.filter((item) => item.rarity === rarity);
-        const base = pool[Math.floor(secureMathRandom() * pool.length)] || pool[0];
+        const pool = collectiblesByRarity[rarity] || [];
+        const base = pool[Math.floor(Math.random() * pool.length)] || pool[0];
         const collectible: Collectible = {
           ...base,
           id: `${base.id}-${rewardId}`,
