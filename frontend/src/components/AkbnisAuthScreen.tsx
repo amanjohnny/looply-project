@@ -269,16 +269,18 @@ export default function AkbnisAuthScreen() {
                     className="input-field h-12 rounded-xl px-4 pr-11"
                     required
                   />
-                  <motion.button
-                    type="button"
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => setShowPassword((prev) => !prev)}
-                    whileTap={{ scale: 0.9 }}
-                    transition={bounceSpring}
-                    className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
-                  >
-                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                  </motion.button>
+                  <div className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center">
+                    <motion.button
+                      type="button"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => setShowPassword((prev) => !prev)}
+                      whileTap={{ scale: 0.9 }}
+                      transition={bounceSpring}
+                      className="flex h-full w-full items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                    >
+                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </motion.button>
+                  </div>
                 </div>
               </div>
 
@@ -358,16 +360,18 @@ export default function AkbnisAuthScreen() {
                     placeholder="Set a secure password"
                     required
                   />
-                  <motion.button
-                    type="button"
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => setShowPassword((prev) => !prev)}
-                    whileTap={{ scale: 0.9 }}
-                    transition={bounceSpring}
-                    className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
-                  >
-                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                  </motion.button>
+                  <div className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center">
+                    <motion.button
+                      type="button"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => setShowPassword((prev) => !prev)}
+                      whileTap={{ scale: 0.9 }}
+                      transition={bounceSpring}
+                      className="flex h-full w-full items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                    >
+                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </motion.button>
+                  </div>
                 </div>
               </div>
 
