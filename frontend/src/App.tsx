@@ -198,6 +198,13 @@ function App() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [closeDirectThread, closeGroupChat, closeStoryViewer, setCurrentPage]);
 
+  const hideBottomNav = useMemo(
+    () => ['editProfile', 'userProfile', 'settings', 'comments', 'challengeMaker'].includes(currentPage)
+      || storyViewerOpen
+      || (currentPage === 'groups' && (Boolean(activeDirectThreadId) || Boolean(activeGroupChatId))),
+    [activeDirectThreadId, activeGroupChatId, currentPage, storyViewerOpen],
+  );
+
   if (!isAuthenticated) {
     return (
       <AnimatePresence mode="wait">
@@ -257,13 +264,6 @@ function App() {
         return <Feed />;
     }
   };
-
-  const hideBottomNav = useMemo(
-    () => ['editProfile', 'userProfile', 'settings', 'comments', 'challengeMaker'].includes(currentPage)
-      || storyViewerOpen
-      || (currentPage === 'groups' && (Boolean(activeDirectThreadId) || Boolean(activeGroupChatId))),
-    [activeDirectThreadId, activeGroupChatId, currentPage, storyViewerOpen],
-  );
 
   return (
     <div className="min-h-screen bg-gray-50">
