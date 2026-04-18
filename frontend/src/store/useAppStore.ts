@@ -187,10 +187,16 @@ const mockStories: Story[] = [
 
 const normalizeGroupUsername = (value: string) => value.trim().toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 20);
 
+const secureMathRandom = () => {
+  const array = new Uint32Array(1);
+  crypto.getRandomValues(array);
+  return array[0] / (0xffffffff + 1);
+};
+
 const createUniqueInviteCode = (existingCodes: string[]) => {
   let tries = 0;
   while (tries < 20) {
-    const candidate = `GL-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+    const candidate = `GL-${secureMathRandom().toString(36).slice(2, 6).toUpperCase()}`;
     if (!existingCodes.includes(candidate)) return candidate;
     tries += 1;
   }
@@ -314,10 +320,10 @@ const caseRewardConfig: Record<CaseType, {
   },
 };
 
-const getRandomInt = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
+const getRandomInt = (min: number, max: number) => Math.floor(secureMathRandom() * (max - min + 1)) + min;
 
 const pickRewardType = (caseType: CaseType): RewardType => {
-  const roll = Math.random() * 100;
+  const roll = secureMathRandom() * 100;
   const chances = caseRewardConfig[caseType].rewardChances;
 
   if (roll < chances.collectible) return 'collectible';
@@ -326,7 +332,7 @@ const pickRewardType = (caseType: CaseType): RewardType => {
 };
 
 const pickRarity = (): Rarity => {
-  const roll = Math.random();
+  const roll = secureMathRandom();
   if (roll < 0.5) return 'common';
   if (roll < 0.75) return 'rare';
   if (roll < 0.9) return 'epic';
@@ -554,7 +560,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     for (let i = 0; i < rewardsCount; i++) {
       const rewardType = pickRewardType(caseType);
-      const rewardId = `${Date.now()}-${i}-${Math.floor(Math.random() * 100000)}`;
+      const rewardId = `${Date.now()}-${i}-${Math.floor(secureMathRandom() * 100000)}`;
 
       if (rewardType === 'collectible') {
         const rarity = pickRarity();
